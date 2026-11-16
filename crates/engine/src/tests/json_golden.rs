@@ -36,7 +36,10 @@ fn open(s: &mut Session, name: &str, bytes: &[u8]) {
 
 /// A workbook with text, numbers, a formula, a style, a number format, a second sheet and a macro.
 fn book() -> Session {
-    let mut s = s();
+    let mut s = Session::new();
+    // Keep the historical serialization fixture independent of the product's default author.
+    s.prefs.user_name = "GridCraft User".into();
+    s.new_workbook();
     for (cell, input) in [("A1", "Item"), ("B1", "Qty"), ("A2", "Äpfel ✓"), ("B2", "3.5"), ("A3", "Pears"), ("B3", "2"), ("B4", "=SUM(B2:B3)")] {
         s.execute("cell.set", json!({"cell": cell, "input": input})).unwrap();
     }

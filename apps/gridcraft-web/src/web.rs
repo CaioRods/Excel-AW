@@ -75,17 +75,8 @@ pub fn start() {
                             _ => {}
                         }
                     }
-                    // Follow the browser's language, except a CJK one. CJK coverage comes from
-                    // optional craft-fonts input, not a guaranteed web font set, so a CJK browser
-                    // cannot be assumed to render localized labels without tofu. Users can still
-                    // choose a language explicitly.
-                    let browser = gridcraft_ui_egui::i18n::Language::system();
-                    if !matches!(
-                        browser,
-                        gridcraft_ui_egui::i18n::Language::Zh | gridcraft_ui_egui::i18n::Language::Ja | gridcraft_ui_egui::i18n::Language::Ko
-                    ) {
-                        app.ui.language = browser;
-                    }
+                    // ExcelAW starts in Brazilian Portuguese on every platform.
+                    app.ui.language = gridcraft_ui_egui::i18n::Language::PtBr;
                     // Preferences from an earlier visit (#1562), as the desktop app reads `ui.json`
                     // and `prefs.json`; a saved language replaces the browser's.
                     let (stored_ui, stored_prefs) = (stored(crate::prefs::UI_KEY), stored(crate::prefs::PREFS_KEY));
@@ -110,7 +101,9 @@ pub fn start() {
         if let Some(el) = document.get_element_by_id(LOADING_ID) {
             match result {
                 Ok(()) => el.remove(),
-                Err(e) => el.set_inner_html(&format!("<p>GridCraft failed to start: {e:?}</p><p>A browser with WebGPU or WebGL2 is required.</p>")),
+                Err(e) => el.set_inner_html(&format!(
+                    "<p>Não foi possível iniciar o ExcelAW: {e:?}</p><p>É necessário um navegador com WebGPU ou WebGL2.</p>"
+                )),
             }
         }
     });

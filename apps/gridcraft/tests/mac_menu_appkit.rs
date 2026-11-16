@@ -23,9 +23,9 @@ fn main() {
 
     let bar = nsapp.mainMenu().expect("a main menu");
     let tops: Vec<String> = (0..bar.numberOfItems()).filter_map(|i| bar.itemAtIndex(i)?.submenu()).map(|m| m.title().to_string()).collect();
-    assert_eq!(tops, ["GridCraft", "File", "Edit", "View", "Insert", "Format", "Tools", "Data", "Window", "Help"]);
+    assert_eq!(tops, ["ExcelAW", "Arquivo", "Editar", "Exibir", "Inserir", "Formatar", "Ferramentas", "Dados", "Janela", "Ajuda"]);
     let windows_menu = nsapp.windowsMenu().expect("AppKit knows the Window menu");
-    assert_eq!(windows_menu.title().to_string(), "Window");
+    assert_eq!(windows_menu.title().to_string(), "Janela");
 
     // A poll lists the open workbook windows at the end of the Window menu (#716).
     let mut session = gridcraft_engine::Session::new();

@@ -163,7 +163,7 @@ impl SheetApp {
             return;
         }
         let Some(d) = self.session.active() else { return };
-        let title = format!("{}{}", d.display_title(), if d.is_dirty() { " — Edited" } else { "" });
+        let title = if d.is_dirty() { format!("{} — {}", d.display_title(), self.ui.language.tr("Edited")) } else { d.display_title().to_string() };
         if self.grid.last_title.as_deref() != Some(title.as_str()) {
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
             self.grid.last_title = Some(title);
