@@ -83,6 +83,12 @@ foreach ($check in @(@('gridcraft.exe', 2), @('gridcraft-cli.exe', 3))) {
   if ($h.Subsystem -ne $check[1]) { throw "$($check[0]) has PE subsystem $($h.Subsystem), expected $($check[1])" }
   Write-Output "ok $($check[0]): $Arch, PE subsystem $($h.Subsystem)"
 }
+# The GUI runs with the current user's token, without a UAC elevation request.
+$AppResourceText = [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes((Join-Path $Bin 'gridcraft.exe')))
+if ($AppResourceText -notmatch '<requestedExecutionLevel\b[^>]*\blevel="asInvoker"') {
+  throw 'The app must embed an asInvoker manifest (no administrator permission required).'
+}
+Write-Output 'ok gridcraft.exe: asInvoker (no administrator permission required)'
 $Stage = Join-Path $TargetDir "windows-package\$Arch"
 Remove-Item -Recurse -Force $Stage -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $Stage | Out-Null

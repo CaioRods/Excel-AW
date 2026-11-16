@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=GridCraft
-GenericName=Spreadsheet
-Comment=Calculate, analyse and chart data in workbooks
+Name=ExcelAW
+GenericName=Planilha eletrônica
+Comment=Calcule, analise e crie gráficos em planilhas
 Exec=gridcraft %F
 TryExec=gridcraft
 Icon=ai.storyteller.gridcraft

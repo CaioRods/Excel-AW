@@ -9,7 +9,7 @@ pub(super) fn manage_rules(app: &mut SheetApp, ui: &mut egui::Ui) {
     // serialised every rule and journaled a step 60 times a second.
     let count = app.session.active().and_then(|d| d.wb.active()).map_or(0, |sh| sh.cond_formats.len());
     if count == 0 {
-        ui.label("There are no conditional formatting rules on this sheet.");
+        ui.label(crate::widgets::tr(ui, "There are no conditional formatting rules on this sheet."));
         return;
     }
     let mut action: Option<Json> = None;
