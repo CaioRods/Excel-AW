@@ -1,28 +1,24 @@
-name: CI
+name: ExcelAW Windows preview
 
-# Quality gates for every push to main and every pull request (`cargo xtask ci`), through the
-# suite's shared gate workflow in craft-common-actions.
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 
 permissions:
-  contents: read
-
-# A newer push to a PR branch cancels its older run; every push to main runs to the end.
-concurrency:
-  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  contents: write
+  packages: write
 
 jobs:
-  gate:
-    # Tracks @main so suite-wide CI fixes reach every app without a PR in each repository.
-    uses: storytold/craft-common-actions/.github/workflows/gate.yml@main
+  package:
+    # Reuse the established packaging pipeline. Dry run excludes paid macOS runners,
+    # signing and publishing; downloadable Windows build artifacts are retained.
+    uses: storytold/craft-common-actions/.github/workflows/release.yml@main
     with:
-      # The same craft-fonts commit as release.yml and freebsd.yml, so the gate tests the fonts that ship.
+      app-name: gridcraft
+      app-title: ExcelAW
+      dry-run: true
       craft-fonts-ref: b076417b5880bd4154bd22f00695b1d28c6bea83
-      packages: >-
-        pkg-config libxkbcommon-dev libwayland-dev libx11-dev libxcursor-dev libxrandr-dev libxi-dev
-        libgtk-3-dev libfontconfig1-dev libfreetype-dev mesa-vulkan-drivers
+      has-web: false
+      has-riscv64: false
+      has-freebsd: false
+      has-arch: false
+      has-server: false
