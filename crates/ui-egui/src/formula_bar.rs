@@ -413,7 +413,7 @@ fn name_box(app: &mut SheetApp, ui: &mut egui::Ui, t: &Tokens) -> Rect {
                     app.run("formulas.defineName", json!({"name": target}))
                 };
                 if let Err(e) = r {
-                    app.message = Some(("GridCraft".into(), crate::clean_error(&e)));
+                    app.message = Some(("ExcelAW".into(), crate::clean_error(&e)));
                 }
                 app.grid.ensure_visible = true;
             }
@@ -429,7 +429,7 @@ fn name_box(app: &mut SheetApp, ui: &mut egui::Ui, t: &Tokens) -> Rect {
     let r = ui.interact(mb, id.with("drop"), Sense::click());
     egui::Popup::menu(&r).show(|ui| {
         if names.is_empty() {
-            ui.label(egui::RichText::new("No names defined").italics());
+            ui.label(egui::RichText::new(crate::widgets::tr(ui, "No names defined")).italics());
         }
         for n in names {
             if ui.button(&n).clicked() {

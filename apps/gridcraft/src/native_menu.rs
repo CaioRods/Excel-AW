@@ -184,7 +184,7 @@ fn tree() -> Vec<(&'static str, Vec<Entry>)> {
                 ("Check for Updates…", "app.checkForUpdates", None),
                 ("Agent Control (MCP)…", "dialog:agents", None),
                 ("Contributors…", "dialog:about:Contributors", None),
-                ("GridCraft on getartcraft.com", "url:https://getartcraft.com/apps/gridcraft", None),
+                ("ExcelAW on getartcraft.com", "url:https://getartcraft.com/apps/gridcraft", None),
                 ("Join the ArtCraft Discord…", "url:https://discord.gg/artcraft", None),
             ],
         ),
@@ -222,33 +222,34 @@ fn select_theme(app: &mut SheetApp, id: &str) -> bool {
 impl NativeMenu {
     pub fn install(ctx: &egui::Context) -> NativeMenu {
         let menu = Menu::new();
-        let app_menu = Submenu::new("GridCraft", true);
-        let about = MenuItem::with_id("dialog:about", "About GridCraft", true, None);
+        let app_menu = Submenu::new("ExcelAW", true);
+        let about = MenuItem::with_id("dialog:about", "Sobre o ExcelAW", true, None);
         let _ = app_menu.append_items(&[
             &about,
             &PredefinedMenuItem::separator(),
-            &PredefinedMenuItem::services(None),
+            &PredefinedMenuItem::services(Some("Serviços")),
             &PredefinedMenuItem::separator(),
-            &PredefinedMenuItem::hide(None),
-            &PredefinedMenuItem::hide_others(None),
-            &PredefinedMenuItem::show_all(None),
+            &PredefinedMenuItem::hide(Some("Ocultar ExcelAW")),
+            &PredefinedMenuItem::hide_others(Some("Ocultar Outros")),
+            &PredefinedMenuItem::show_all(Some("Mostrar Todos")),
             &PredefinedMenuItem::separator(),
-            &MenuItem::with_id(QUIT, "Quit GridCraft", true, Accelerator::from_str("CMD+Q").ok()),
+            &MenuItem::with_id(QUIT, "Sair do ExcelAW", true, Accelerator::from_str("CMD+Q").ok()),
         ]);
         let _ = menu.append(&app_menu);
         let mut theme_items = Vec::new();
         let mut window_menu = None;
         for (title, entries) in tree() {
-            let sub = Submenu::new(title, true);
+            let sub = Submenu::new(gridcraft_ui_egui::i18n::Language::PtBr.tr(title), true);
             for (label, id, acc) in entries {
                 if label == "-" {
                     let _ = sub.append(&PredefinedMenuItem::separator());
                     continue;
                 }
                 if id == "view.theme" {
-                    let themes = Submenu::new(label, true);
+                    let themes = Submenu::new(gridcraft_ui_egui::i18n::Language::PtBr.tr(label), true);
                     for (mode, label) in [("system", "System"), ("light", "Light"), ("dark", "Dark")] {
-                        let item = CheckMenuItem::with_id(format!("theme:{mode}"), label, true, false, None);
+                        let item =
+                            CheckMenuItem::with_id(format!("theme:{mode}"), gridcraft_ui_egui::i18n::Language::PtBr.tr(label), true, false, None);
                         let _ = themes.append(&item);
                         theme_items.push((mode, item));
                     }
@@ -256,7 +257,7 @@ impl NativeMenu {
                     continue;
                 }
                 let accel = acc.and_then(|a| Accelerator::from_str(a).ok());
-                let item = MenuItem::with_id(id, label, true, accel);
+                let item = MenuItem::with_id(id, gridcraft_ui_egui::i18n::Language::PtBr.tr(label), true, accel);
                 let _ = sub.append(&item);
             }
             let _ = menu.append(&sub);

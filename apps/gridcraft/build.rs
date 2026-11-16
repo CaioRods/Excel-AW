@@ -9,13 +9,15 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=../../assets/app-icon/gridcraft.ico");
     println!("cargo:rerun-if-env-changed=GRIDCRAFT_REQUIRE_WINRES");
+    println!("cargo:rerun-if-changed=../../packaging/windows/excelaw.manifest");
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
         return;
     }
     let mut res = winresource::WindowsResource::new();
-    res.set_icon("../../assets/app-icon/gridcraft.ico")
-        .set("ProductName", "GridCraft")
-        .set("FileDescription", "GridCraft spreadsheet")
+    res.set_manifest(include_str!("../../packaging/windows/excelaw.manifest"))
+        .set_icon("../../assets/app-icon/gridcraft.ico")
+        .set("ProductName", "ExcelAW")
+        .set("FileDescription", "Planilhas ExcelAW")
         .set("CompanyName", "Learning Machines LLC")
         .set("LegalCopyright", "Copyright (c) the GridCraft authors. MIT OR Apache-2.0.")
         .set("OriginalFilename", "gridcraft.exe")

@@ -1,3 +1,7 @@
+# ExcelAW
+
+Adaptação empresarial do [GridCraft](https://github.com/storytold/gridcraft), com interface inicial em português do Brasil e tema vermelho `#e31923`. Código original sob MIT ou Apache-2.0; licenças, avisos e créditos preservados.
+
 <p align="center">
   <a href="https://getartcraft.com/">
     <picture>

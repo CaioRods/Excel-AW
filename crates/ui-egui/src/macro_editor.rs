@@ -1106,17 +1106,17 @@ fn prompts(app: &mut SheetApp, ctx: &egui::Context, ed: &mut Editor, open: &mut 
         let mut answer: Option<Option<bool>> = None;
         egui::Modal::new(Id::unique("gridcraft.macro_editor.stop")).show(ctx, |ui| {
             ui.set_width(360.0);
-            ui.label(egui::RichText::new("Stop debugging").strong());
-            ui.label("Keep the changes the macro has made so far? They are one undo step either way.");
+            ui.label(egui::RichText::new(crate::widgets::tr(ui, "Stop debugging")).strong());
+            ui.label(crate::widgets::tr(ui, "Keep the changes the macro has made so far? They are one undo step either way."));
             ui.add_space(8.0);
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("Cancel").clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                if ui.button(crate::widgets::tr(ui, "Cancel")).clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
                     answer = Some(None);
                 }
-                if ui.button("Undo Changes").clicked() {
+                if ui.button(crate::widgets::tr(ui, "Undo Changes")).clicked() {
                     answer = Some(Some(false));
                 }
-                if ui.button("Keep Changes").clicked() || ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                if ui.button(crate::widgets::tr(ui, "Keep Changes")).clicked() || ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                     answer = Some(Some(true));
                 }
             });
@@ -1147,13 +1147,13 @@ fn prompts(app: &mut SheetApp, ctx: &egui::Context, ed: &mut Editor, open: &mut 
             ui.label(egui::RichText::new(format!("Save changes to macro “{}”?", ed.draft.name)).strong());
             ui.add_space(8.0);
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("Cancel").clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                if ui.button(crate::widgets::tr(ui, "Cancel")).clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
                     answer = Some(None);
                 }
-                if ui.button("Don't Save").clicked() {
+                if ui.button(crate::widgets::tr(ui, "Don't Save")).clicked() {
                     answer = Some(Some(false));
                 }
-                if ui.button("Save").clicked() || ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                if ui.button(crate::widgets::tr(ui, "Save")).clicked() || ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                     answer = Some(Some(true));
                 }
             });
@@ -1189,10 +1189,10 @@ fn body(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Editor) {
     let debugging = app.session.macro_debug.is_some();
     // Name, description, Save; they wrap in a narrow window.
     ui.horizontal_wrapped(|ui| {
-        let label = ui.label("Name:");
+        let label = ui.label(crate::widgets::tr(ui, "Name:"));
         let name =
             ui.add_enabled(!debugging, egui::TextEdit::singleline(&mut ed.draft.name).desired_width(180.0).id_salt("me_name")).labelled_by(label.id);
-        let label = ui.label("Description:");
+        let label = ui.label(crate::widgets::tr(ui, "Description:"));
         let desc = ui
             .add_enabled(
                 !debugging,
@@ -1202,7 +1202,7 @@ fn body(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Editor) {
         if name.changed() || desc.changed() {
             ed.dirty = true;
         }
-        if ui.add_enabled(ed.dirty && !debugging, egui::Button::new("Save")).clicked() {
+        if ui.add_enabled(ed.dirty && !debugging, egui::Button::new(crate::widgets::tr(ui, "Save"))).clicked() {
             save(app, ed);
         }
     });
@@ -1308,7 +1308,7 @@ fn status_line(app: &SheetApp, ui: &mut Ui, ed: &Editor, t: &Tokens) {
         let resolved = cur.get("params").or(cur.get("over")).or(cur.get("cell")).map(|p| p.to_string());
         if let Some(p) = resolved {
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new("Runs with:").color(t.text_dim));
+                ui.label(egui::RichText::new(crate::widgets::tr(ui, "Runs with:")).color(t.text_dim));
                 ui.add(egui::Label::new(egui::RichText::new(p).monospace().color(t.text)).truncate());
             });
         } else if let Some(e) = cur["paramsError"].as_str() {
@@ -1324,8 +1324,11 @@ fn status_line(app: &SheetApp, ui: &mut Ui, ed: &Editor, t: &Tokens) {
         ui.add(egui::Label::new(egui::RichText::new(text).color(if bad { t.danger } else { t.text })).wrap());
     } else {
         ui.label(
-            egui::RichText::new("Check shows on the grid what the macro reads and writes. Click a step's gutter to set a breakpoint.")
-                .color(t.text_dim),
+            egui::RichText::new(crate::widgets::tr(
+                ui,
+                "Check shows on the grid what the macro reads and writes. Click a step's gutter to set a breakpoint.",
+            ))
+            .color(t.text_dim),
         );
     }
     if app.grid.macro_overlay.is_some() {
@@ -1361,7 +1364,10 @@ fn step_list(app: &mut SheetApp, ui: &mut Ui, ed: &mut Editor, debugging: bool) 
     rows(&ed.draft.steps, "", 0, &mut list);
     if list.is_empty() {
         ui.add_space(8.0);
-        ui.label(egui::RichText::new("No steps yet. Add Step picks a command, or record one with Automate › Record Macro.").color(t.text_dim));
+        ui.label(
+            egui::RichText::new(crate::widgets::tr(ui, "No steps yet. Add Step picks a command, or record one with Automate › Record Macro."))
+                .color(t.text_dim),
+        );
         return;
     }
     let current = ed.debug.as_ref().and_then(|s| s["current"]["step"].as_str().map(str::to_string));
@@ -1621,7 +1627,7 @@ fn picker(ui: &mut Ui, ed: &mut Editor) {
             r.on_hover_text(format!("{id}  {menu}"));
         }
         if items.is_empty() {
-            ui.label(egui::RichText::new("No command matches.").color(t.text_dim));
+            ui.label(egui::RichText::new(crate::widgets::tr(ui, "No command matches.")).color(t.text_dim));
         }
     });
     let Some(item) = chosen.and_then(|i| items.get(i)).map(|x| x.0.clone()) else { return };
@@ -1789,7 +1795,7 @@ fn ref_field(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Editor, (
 fn step_tab(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Editor) {
     let t = Tokens::get(ui.ctx());
     let Some(path) = ed.selected.clone() else {
-        ui.label(egui::RichText::new("Select a step to see its settings.").color(t.text_dim));
+        ui.label(egui::RichText::new(crate::widgets::tr(ui, "Select a step to see its settings.")).color(t.text_dim));
         return;
     };
     let Some(st) = step_at(&ed.draft.steps, &path) else {
@@ -1824,8 +1830,8 @@ fn step_tab(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Editor) {
     let mut enabled = st.enabled;
     let mut bp = st.breakpoint;
     ui.horizontal(|ui| {
-        let a = ui.checkbox(&mut enabled, "Enabled").changed();
-        let b = ui.checkbox(&mut bp, "Breakpoint").changed();
+        let a = ui.checkbox(&mut enabled, crate::widgets::tr(ui, "Enabled")).changed();
+        let b = ui.checkbox(&mut bp, crate::widgets::tr(ui, "Breakpoint")).changed();
         if (a || b)
             && let Some(s) = step_mut(&mut ed.draft.steps, &path)
         {
@@ -1841,19 +1847,19 @@ fn step_tab(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Editor) {
     match st.kind.clone() {
         StepKind::Command { id, params } => command_fields(app, ui, d, ed, &path, &id, &params, in_repeat),
         StepKind::Repeat { over, of, max, .. } => {
-            ui.label("For each");
+            ui.label(crate::widgets::tr(ui, "For each"));
             let mut of2 = of;
             ui.horizontal(|ui| {
-                ui.radio_value(&mut of2, RepeatOf::Rows, "row");
-                ui.radio_value(&mut of2, RepeatOf::Columns, "column");
-                ui.label("of:");
+                ui.radio_value(&mut of2, RepeatOf::Rows, crate::widgets::tr(ui, "row"));
+                ui.radio_value(&mut of2, RepeatOf::Columns, crate::widgets::tr(ui, "column"));
+                ui.label(crate::widgets::tr(ui, "of:"));
             });
             ref_field(app, ui, d, ed, (&path, "over"), &over, in_repeat);
             let mut max2 = max;
             ui.horizontal(|ui| {
-                ui.label("At most");
+                ui.label(crate::widgets::tr(ui, "At most"));
                 ui.add(egui::DragValue::new(&mut max2).range(1..=100_000));
-                ui.label("times");
+                ui.label(crate::widgets::tr(ui, "times"));
             });
             if (of2 != of || max2 != max)
                 && let Some(StepKind::Repeat { of, max, .. }) = step_mut(&mut ed.draft.steps, &path).map(|s| &mut s.kind)
@@ -1862,10 +1868,14 @@ fn step_tab(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Editor) {
                 *max = max2;
                 ed.dirty = true;
             }
-            ui.label(egui::RichText::new("Inside, Row (or Column) stands for the current one, e.g. Row.right.").small().color(t.text_dim));
+            ui.label(
+                egui::RichText::new(crate::widgets::tr(ui, "Inside, Row (or Column) stands for the current one, e.g. Row.right."))
+                    .small()
+                    .color(t.text_dim),
+            );
         }
         StepKind::If { cell, op, value, .. } => {
-            ui.label("If cell");
+            ui.label(crate::widgets::tr(ui, "If cell"));
             ref_field(app, ui, d, ed, (&path, "cell"), &cell, in_repeat);
             let mut op2 = op;
             let ops = [
@@ -1907,9 +1917,9 @@ fn step_tab(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Editor) {
         }
         StepKind::Stop { message, rollback } => {
             let (mut m, mut rb) = (message.clone(), rollback);
-            ui.label("Message:");
+            ui.label(crate::widgets::tr(ui, "Message:"));
             let a = ui.add(egui::TextEdit::singleline(&mut m).desired_width(f32::INFINITY).id_salt(("me_stop", &path))).changed();
-            let b = ui.checkbox(&mut rb, "Undo what the macro did before stopping").changed();
+            let b = ui.checkbox(&mut rb, crate::widgets::tr(ui, "Undo what the macro did before stopping")).changed();
             if (a || b)
                 && let Some(StepKind::Stop { message, rollback }) = step_mut(&mut ed.draft.steps, &path).map(|s| &mut s.kind)
             {
@@ -1920,7 +1930,7 @@ fn step_tab(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Editor) {
         }
     }
     ui.add_space(6.0);
-    ui.label("Note:");
+    ui.label(crate::widgets::tr(ui, "Note:"));
     let mut note = st.note.clone();
     if ui.add(egui::TextEdit::multiline(&mut note).desired_rows(2).desired_width(f32::INFINITY).id_salt(("me_note", &path))).changed()
         && let Some(s) = step_mut(&mut ed.draft.steps, &path)
@@ -2020,7 +2030,7 @@ fn command_fields(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Edit
         ui.add(egui::TextEdit::singleline(&mut ed.new_param.0).hint_text("parameter").desired_width(90.0).id_salt("me_np_k"));
         ui.add(egui::TextEdit::singleline(&mut ed.new_param.1).hint_text("value").desired_width(140.0).id_salt("me_np_v"));
         let key = ed.new_param.0.trim().to_string();
-        if ui.add_enabled(!key.is_empty(), egui::Button::new("Add")).clicked() {
+        if ui.add_enabled(!key.is_empty(), egui::Button::new(crate::widgets::tr(ui, "Add"))).clicked() {
             let raw = ed.new_param.1.clone();
             let v = serde_json::from_str::<Json>(&raw).unwrap_or(Json::String(raw));
             if let Some(StepKind::Command { params, .. }) = step_mut(&mut ed.draft.steps, path).map(|s| &mut s.kind)
@@ -2042,7 +2052,11 @@ fn command_fields(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Edit
 
 fn inputs_tab(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Editor) {
     let t = Tokens::get(ui.ctx());
-    ui.label(egui::RichText::new("The ranges the macro works on. Each is checked before the macro runs.").small().color(t.text_dim));
+    ui.label(
+        egui::RichText::new(crate::widgets::tr(ui, "The ranges the macro works on. Each is checked before the macro runs."))
+            .small()
+            .color(t.text_dim),
+    );
     ui.horizontal_wrapped(|ui| {
         for (k, i) in ed.draft.inputs.iter().enumerate() {
             if ui.selectable_label(ed.input == k, i.name.as_str()).clicked() {
@@ -2055,7 +2069,9 @@ fn inputs_tab(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Editor) 
             ed.input = ed.draft.inputs.len() - 1;
             ed.dirty = true;
         }
-        if ui.add_enabled(!ed.draft.inputs.is_empty(), egui::Button::new("Remove").small()).clicked() && ed.input < ed.draft.inputs.len() {
+        if ui.add_enabled(!ed.draft.inputs.is_empty(), egui::Button::new(crate::widgets::tr(ui, "Remove")).small()).clicked()
+            && ed.input < ed.draft.inputs.len()
+        {
             ed.draft.inputs.remove(ed.input);
             ed.input = ed.input.saturating_sub(1);
             ed.dirty = true;
@@ -2063,23 +2079,23 @@ fn inputs_tab(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Editor) 
     });
     let k = ed.input;
     let Some(mut i) = ed.draft.inputs.get(k).cloned() else {
-        ui.label(egui::RichText::new("No inputs: the macro works on fixed cells only.").color(t.text_dim));
+        ui.label(egui::RichText::new(crate::widgets::tr(ui, "No inputs: the macro works on fixed cells only.")).color(t.text_dim));
         return;
     };
     let before = i.clone();
     ui.separator();
     egui::Grid::new("me_input").num_columns(2).spacing(vec2(8.0, 4.0)).show(ui, |ui| {
-        ui.label("Name:");
+        ui.label(crate::widgets::tr(ui, "Name:"));
         ui.add(egui::TextEdit::singleline(&mut i.name).desired_width(140.0).id_salt("me_in_name"));
         ui.end_row();
-        ui.label("Shape:");
+        ui.label(crate::widgets::tr(ui, "Shape:"));
         ui.horizontal(|ui| {
-            ui.radio_value(&mut i.kind, InputKind::Range, "range");
-            ui.radio_value(&mut i.kind, InputKind::Cell, "single cell");
+            ui.radio_value(&mut i.kind, InputKind::Range, crate::widgets::tr(ui, "range"));
+            ui.radio_value(&mut i.kind, InputKind::Cell, crate::widgets::tr(ui, "single cell"));
         });
         ui.end_row();
         if i.kind == InputKind::Range {
-            ui.label("Data rows:");
+            ui.label(crate::widgets::tr(ui, "Data rows:"));
             ui.horizontal(|ui| {
                 ui.add(egui::DragValue::new(&mut i.rows[0]).range(0..=1_048_576).prefix("at least "));
                 ui.add(
@@ -2090,7 +2106,7 @@ fn inputs_tab(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Editor) 
                 );
             });
             ui.end_row();
-            ui.label("Columns:");
+            ui.label(crate::widgets::tr(ui, "Columns:"));
             ui.horizontal(|ui| {
                 ui.add(egui::DragValue::new(&mut i.cols[0]).range(0..=16_384).prefix("at least "));
                 ui.add(
@@ -2102,17 +2118,17 @@ fn inputs_tab(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Editor) 
             });
             ui.end_row();
             ui.label("");
-            ui.checkbox(&mut i.header, "First row holds column names");
+            ui.checkbox(&mut i.header, crate::widgets::tr(ui, "First row holds column names"));
             ui.end_row();
         }
         ui.label("");
-        ui.checkbox(&mut i.non_empty, "Every cell must hold something");
+        ui.checkbox(&mut i.non_empty, crate::widgets::tr(ui, "Every cell must hold something"));
         ui.end_row();
     });
     // Column types, one per column of the example (or of the list so far).
     let ncols = if k == 0 { parse_refs(&ed.example).first().map_or(0, |(_, r)| r.width() as usize) } else { 0 }.max(i.col_types.len()).min(16);
     if i.kind == InputKind::Range && ncols > 0 {
-        ui.label("Each column must hold:");
+        ui.label(crate::widgets::tr(ui, "Each column must hold:"));
         let headers = if k == 0 { example_headers(app, &ed.example, i.header) } else { vec![] };
         egui::Grid::new("me_types").num_columns(2).show(ui, |ui| {
             for c in 0..ncols {
@@ -2146,15 +2162,18 @@ fn inputs_tab(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Editor) 
     }
     if k == 0 {
         ui.separator();
-        ui.label("Example (what Check, Run and Debug use here):");
+        ui.label(crate::widgets::tr(ui, "Example (what Check, Run and Debug use here):"));
         let example = ed.example.clone();
         ref_field(app, ui, d, ed, ("@example", "example"), &example, false);
         ui.horizontal(|ui| {
-            if ui.button("Use current selection as example").clicked() {
+            if ui.button(crate::widgets::tr(ui, "Use current selection as example")).clicked() {
                 use_selection_as_example(app, ed);
             }
             let mut fixed = ed.draft.inputs.first().is_some_and(|i| i.default_ref.is_some());
-            if ui.checkbox(&mut fixed, "Always run on this range").on_hover_text("Otherwise the macro runs on the selection").changed()
+            if ui
+                .checkbox(&mut fixed, crate::widgets::tr(ui, "Always run on this range"))
+                .on_hover_text("Otherwise the macro runs on the selection")
+                .changed()
                 && let Some(first) = ed.draft.inputs.first_mut()
             {
                 first.default_ref = fixed.then(|| ed.example.clone());
@@ -2268,16 +2287,16 @@ pub fn infer_input(sh: &gridcraft_engine::model::Sheet, r: RangeRef) -> (bool, V
 
 fn output_tab(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Editor) {
     let t = Tokens::get(ui.ctx());
-    ui.label("Output anchor (what the Output token stands for):");
+    ui.label(crate::widgets::tr(ui, "Output anchor (what the Output token stands for):"));
     let anchor = ed.draft.output.anchor.clone().unwrap_or_default();
     ref_field(app, ui, d, ed, ("@output", "anchor"), &anchor, false);
     ui.label(
-        egui::RichText::new("Leave it empty when no step uses Output. A token such as Input.right keeps it beside the data.")
+        egui::RichText::new(crate::widgets::tr(ui, "Leave it empty when no step uses Output. A token such as Input.right keeps it beside the data."))
             .small()
             .color(t.text_dim),
     );
     ui.add_space(6.0);
-    ui.label("When results would land on cells that hold data:");
+    ui.label(crate::widgets::tr(ui, "When results would land on cells that hold data:"));
     let mut rule = ed.draft.output.on_conflict;
     for (r, label) in [
         (OnConflict::Ask, "Ask (overwrite, shift down or shift right)"),
@@ -2292,7 +2311,11 @@ fn output_tab(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, ed: &mut Editor) 
         ed.draft.output.on_conflict = rule;
         ed.dirty = true;
     }
-    ui.label(egui::RichText::new("Agents and other programs that run the macro get an error instead of the question.").small().color(t.text_dim));
+    ui.label(
+        egui::RichText::new(crate::widgets::tr(ui, "Agents and other programs that run the macro get an error instead of the question."))
+            .small()
+            .color(t.text_dim),
+    );
     if !ed.draft.permissions.is_empty() {
         ui.add_space(6.0);
         ui.label(format!("May use files through: {}", ed.draft.permissions.join(", ")));

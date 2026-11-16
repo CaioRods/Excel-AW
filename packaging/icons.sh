@@ -15,8 +15,8 @@ trap 'rm -rf "$TMP"' EXIT
 
 command -v resvg >/dev/null || { echo "error: resvg not found (brew install resvg)" >&2; exit 1; }
 
-# The artwork is a full-bleed 512 tile (rx=112). Windows and Linux use it as is. macOS icons sit on
-# Apple's grid: an 824/1024 body with a transparent margin, so widen the viewBox to 512*1024/824.
+# Preserve the supplied ExcelAW logo on Windows and Linux. macOS icons sit on Apple's
+# grid: an 824/1024 body with a transparent margin, so widen the viewBox to 512*1024/824.
 MAC="$TMP/mac.svg"
 sed 's/viewBox="0 0 512 512"/viewBox="-62.136 -62.136 636.272 636.272"/' "$SVG" >"$MAC"
 grep -q 'viewBox="-62.136' "$MAC" || { echo "error: expected viewBox=\"0 0 512 512\" in $SVG" >&2; exit 1; }
