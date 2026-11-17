@@ -30,3 +30,10 @@ foreach ($entry in $policy.registry) {
 }
 $policy | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $policyFile -Encoding utf8
 Copy-Item -LiteralPath "$PSScriptRoot/assets/$($App.ToLowerInvariant()).ico" -Destination (Join-Path $Source "assets/app-icon/$package.ico") -Force
+
+$resource = Join-Path $Source "apps/$package/build.rs"
+$content = (Get-Content -LiteralPath $resource -Raw).Replace("""ProductName"", ""$old""", """ProductName"", ""$name""")
+$content = $content.Replace('WordCraft word processor', 'Editor de documentos Word AW')
+$content = $content.Replace('Planilhas ExcelAW', 'Planilhas Excel AW')
+$content = $content.Replace('Learning Machines LLC', 'Caio Victor Rodrigues')
+Set-Content -LiteralPath $resource -Value $content -Encoding utf8

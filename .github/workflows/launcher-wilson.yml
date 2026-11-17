@@ -73,13 +73,14 @@ jobs:
           ./packaging/windows/package.ps1 -Arch x64
           $msi = @(Get-ChildItem dist/release -Filter '${{ matrix.package }}-*-windows-x64.msi')
           if ($msi.Count -ne 1) { throw 'Esperava exatamente um MSI x64.' }
-          ../central/launcher/test-msi.ps1 -Package $msi[0].FullName -Name '${{ matrix.app }} AW'
           Copy-Item $msi[0].FullName "$env:RUNNER_TEMP\${{ matrix.app }}-AW-x64.msi"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.app }}-AW-x64
           path: ${{ runner.temp }}/${{ matrix.app }}-AW-x64.msi
           if-no-files-found: error
+      - name: Testar instalação por usuário e por computador
+        run: ./central/launcher/test-msi.ps1 -Package "$env:RUNNER_TEMP/${{ matrix.app }}-AW-x64.msi" -Name '${{ matrix.app }} AW'
 
   central:
     name: Compilar a central

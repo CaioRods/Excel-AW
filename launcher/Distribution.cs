@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Security.Cryptography;
@@ -27,25 +28,21 @@ internal static class Distribution
 
     internal static Version InstalledVersion(int app, bool machine)
     {
-        Version newest = Bundled[app];
+        string key = app == 0 ? "ExcelAW" : "WordCraft";
+        string exe = app == 0 ? "gridcraft.exe" : "wordcraft.exe";
         using (var root = RegistryKey.OpenBaseKey(machine ? RegistryHive.LocalMachine : RegistryHive.CurrentUser, RegistryView.Registry64))
-        using (var uninstall = root.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"))
+        using (var location = root.OpenSubKey(@"SOFTWARE\" + key))
         {
-            if (uninstall == null) return newest;
-            foreach (string name in uninstall.GetSubKeyNames())
+            string directory = location == null ? null : location.GetValue("InstallDir") as string;
+            if (!string.IsNullOrEmpty(directory))
             {
-                using (var entry = uninstall.OpenSubKey(name))
-                {
-                    if (entry == null) continue;
-                    string label = entry.GetValue("DisplayName") as string;
-                    if (label != Names[app] && !(app == 0 && label == "ExcelAW")) continue;
-                    Version version;
-                    if (Version.TryParse(entry.GetValue("DisplayVersion") as string, out version) && version > newest)
-                        newest = version;
-                }
+                string path = Path.Combine(directory, exe);
+                Version version;
+                if (File.Exists(path) && Version.TryParse(FileVersionInfo.GetVersionInfo(path).ProductVersion, out version) &&
+                    version > Bundled[app]) return version;
             }
         }
-        return newest;
+        return Bundled[app];
     }
 
     internal static Update Latest(int app)

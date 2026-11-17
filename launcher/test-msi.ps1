@@ -16,9 +16,14 @@ foreach ($machine in @($false, $true)) {
   $root = if ($machine) { 'HKLM:' } else { 'HKCU:' }
   Invoke-Msi '/i' $properties
   try {
-    $entries = @(Get-ItemProperty "$root\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |
-      Where-Object { $_.DisplayName -eq $Name })
-    if (!$entries.Count) { throw "$Name não apareceu no registro de instalação esperado ($root)." }
+    $registry = if ($Name -eq 'Excel AW') { 'ExcelAW' } else { 'WordCraft' }
+    $exe = if ($Name -eq 'Excel AW') { 'gridcraft.exe' } else { 'wordcraft.exe' }
+    $installed = Get-ItemPropertyValue -LiteralPath "$root\SOFTWARE\$registry" -Name InstallDir
+    if (!(Test-Path -LiteralPath (Join-Path $installed $exe) -PathType Leaf)) {
+      throw "Arquivo executável de $Name ausente no escopo $root."
+    }
+    $actual = (Get-Item -LiteralPath (Join-Path $installed $exe)).VersionInfo.ProductName
+    if ($actual -ne $Name) { throw "Nome de produto inesperado: $actual" }
     Write-Output "Instalação validada: $Name ($root)"
   } finally {
     Invoke-Msi '/x' $properties
