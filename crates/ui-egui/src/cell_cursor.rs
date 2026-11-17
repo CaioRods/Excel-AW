@@ -44,7 +44,7 @@ mod tests {
             assert_eq!(image.rgba.len(), usize::from(image.size[0]) * usize::from(image.size[1]) * 4);
             assert_eq!(image.hotspot, [10 * scale, 10 * scale]);
             for color in [[255, 255, 255, 255], [0, 0, 0, 255], [0, 0, 0, 0]] {
-                assert!(image.rgba.chunks_exact(4).any(|pixel| pixel == color));
+                assert!(image.rgba.as_chunks::<4>().0.contains(&color));
             }
         }
     }
