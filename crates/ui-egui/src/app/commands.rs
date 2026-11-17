@@ -156,7 +156,7 @@ impl SheetApp {
         if e.contains("is not available right now") {
             self.toast = Some((e, now_ms()));
         } else {
-            self.message = Some(("ExcelAW".into(), clean_error(&e)));
+            self.message = Some(("Excel AW".into(), clean_error(&e)));
         }
     }
 
@@ -341,12 +341,12 @@ impl SheetApp {
         for req in self.session.take_ui_requests() {
             match req {
                 UiRequest::Dialog(name, params) => self.open_dialog(&name, params),
-                UiRequest::Message(m) => self.message = Some(("ExcelAW".into(), m)),
+                UiRequest::Message(m) => self.message = Some(("Excel AW".into(), m)),
                 UiRequest::EditCell(text) => {
                     let text = text.map(|text| {
                         self.session
                             .active()
-                            .map(|d| formula_locale::display_template(&text, self.ui.language.formula_locale(), &d.wb, d.wb.active_sheet()))
+                            .map(|d| formula_locale::display_template(&text, self.ui.formula_locale(), &d.wb, d.wb.active_sheet()))
                             .unwrap_or(text)
                     });
                     self.begin_edit(text, false);

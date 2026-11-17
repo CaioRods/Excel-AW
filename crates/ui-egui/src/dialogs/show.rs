@@ -15,6 +15,38 @@ use super::zoom::zoom;
 use super::{Dialog, Field, Json, Key, Map, RefPick, SheetApp, json, vec2};
 use gridcraft_engine::model::PageOrder;
 
+/// Translucent acrylic with softly diffused red and amber lighting.
+fn acrylic_surface(rect: egui::Rect, frame: egui::Frame, dark: bool) -> egui::Shape {
+    use egui::epaint::RectShape;
+    use egui::{Color32, Rect, Shape, pos2};
+
+    let (base, warm, amber) = if dark {
+        (
+            Color32::from_rgba_unmultiplied(40, 37, 39, 221),
+            Color32::from_rgba_unmultiplied(124, 73, 74, 92),
+            Color32::from_rgba_unmultiplied(119, 88, 56, 71),
+        )
+    } else {
+        (
+            Color32::from_rgba_unmultiplied(251, 248, 246, 217),
+            Color32::from_rgba_unmultiplied(231, 162, 157, 89),
+            Color32::from_rgba_unmultiplied(241, 205, 138, 86),
+        )
+    };
+    let blur = (rect.height() * 0.24).clamp(8.0, 48.0);
+    let glow = |x: f32, y: f32, color| {
+        let center = pos2(rect.left() + rect.width() * x, rect.top() + rect.height() * y);
+        let area = Rect::from_center_size(center, rect.size() * vec2(0.48, 0.29));
+        Shape::Rect(RectShape::filled(area, 24, color).with_blur_width(blur))
+    };
+    Shape::Vec(vec![
+        frame.shadow.as_shape(rect, frame.corner_radius).into(),
+        Shape::rect_filled(rect, frame.corner_radius, base),
+        glow(0.32, 0.31, warm),
+        glow(0.68, 0.67, amber),
+    ])
+}
+
 /// Builds the command params from form values for dialogs that need translation.
 /// The parameters OK sends to the dialog's command: its field values, reshaped per dialog.
 /// Unchanged hyperlink display text is omitted so its number or formula stays intact.
@@ -148,7 +180,8 @@ pub fn show(app: &mut SheetApp, ctx: &egui::Context) {
     let mut confirm = false;
     let width = match d.name.as_str() {
         "formatCells" => 560.0,
-        "about" => 820.0,
+        "about" => 380.0,
+        "saveChanges" => 440.0,
         "insertFunction" | "commandSearch" | "nameManager" | "manageRules" | "journal" | "agents" | "equation" => 520.0,
         "macros" => 480.0,
         "recommendedCharts" => 600.0,
@@ -160,10 +193,17 @@ pub fn show(app: &mut SheetApp, ctx: &egui::Context) {
         _ => 380.0,
     };
     let window_id = egui::Id::unique("dialog").with(&d.name);
+    let style = ctx.style_of(ctx.theme());
+    let frame = egui::Frame::window(&style);
+    let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Middle, window_id));
+    // Reserve the surface below the title, border and controls, then paint at the measured size.
+    let surface = painter.add(egui::Shape::Noop);
     let window = egui::Window::new(app.ui.language.tr(&d.title))
         .id(window_id)
+        .frame(frame.fill(egui::Color32::TRANSPARENT).shadow(egui::epaint::Shadow::NONE))
         .collapsible(false)
         .resizable(false)
+        .title_bar(d.name != "saveChanges")
         .default_width(width)
         // A default position, not an anchor: egui anchors can't be dragged, and dialogs move by their title bar.
         .pivot(egui::Align2::CENTER_CENTER)
@@ -171,7 +211,7 @@ pub fn show(app: &mut SheetApp, ctx: &egui::Context) {
         .open(&mut win_open);
     let window = match d.name.as_str() {
         "insertPicture" => window.default_height(240.0),
-        "advancedFilter" => window.default_height(0.0),
+        "advancedFilter" | "saveChanges" => window.default_height(0.0),
         _ => window,
     };
     let (window, collapsed) = place_window(app, ctx, &mut d, window, window_id);
@@ -208,13 +248,13 @@ pub fn show(app: &mut SheetApp, ctx: &egui::Context) {
                 "formatControl" => crate::control_ui::format_dialog(app, ui, &mut d, &mut open),
                 "controlQuestion" => crate::control_ui::question_dialog(app, ui, &mut d, &mut open),
                 "agents" => {
-                    ui.label(crate::widgets::tr(ui, "ExcelAW is fully drivable by agents. Every menu item, button and gesture is a command:"));
+                    ui.label(crate::widgets::tr(ui, "Excel AW is fully drivable by agents. Every menu item, button and gesture is a command:"));
                     ui.add_space(4.0);
                     ui.monospace("gridcraft --control 7979        # JSON-lines control channel\ngridcraft-cli mcp --connect 7979   # MCP bridged to this window\ngridcraft-cli mcp                   # headless MCP server");
                     ui.add_space(4.0);
                     ui.label(format!("{} engine commands are available. See docs/mcp.md and docs/control-protocol.md.", gridcraft_engine::command_specs().len()));
                 }
-                "about" => about(ui, &mut d),
+                "about" => about(ui, app.ui.language),
                 "journal" => {
                     egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
                         for (id, p) in app.session.journal.iter().rev().take(500) {
@@ -338,13 +378,25 @@ pub fn show(app: &mut SheetApp, ctx: &egui::Context) {
                     }
                 }
                 "saveChanges" => {
-                    ui.label(format!("Do you want to save the changes you made to {}?", d.values.get("title").and_then(Json::as_str).unwrap_or("this workbook")));
+                    let lang = app.ui.language;
+                    let tokens = crate::theme::Tokens::get(ui.ctx());
+                    let title = d.values.get("title").and_then(Json::as_str).unwrap_or_else(|| lang.tr("this workbook"));
+                    let message = lang.tr("Do you want to save the changes you made to {title}?").replace("{title}", title);
                     let quitting = d.values.get("quit").and_then(Json::as_bool) == Some(true);
-                    ui.horizontal(|ui| {
-                        for (label, answer) in
-                            [("Don't Save", crate::SaveAnswer::DontSave), ("Cancel", crate::SaveAnswer::Cancel), ("Save", crate::SaveAnswer::Save)]
-                        {
-                            if ui.button(label).clicked() && app.answer_save_changes(answer, quitting, ui.ctx()) {
+                    ui.label(egui::RichText::new(lang.tr(&d.title)).font(crate::theme::ui_bold(19.0)));
+                    ui.add_space(5.0);
+                    ui.label(egui::RichText::new(message).color(tokens.text_dim));
+                    ui.add_space(16.0);
+                    ui.separator();
+                    ui.add_space(8.0);
+                    ui.allocate_ui_with_layout(vec2(ui.available_width(), 34.0), egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let save = egui::Button::new(egui::RichText::new(lang.tr("Save")).strong().color(tokens.on_accent))
+                            .fill(tokens.accent).stroke(egui::Stroke::NONE).corner_radius(8).min_size(vec2(84.0, 34.0));
+                        let cancel = egui::Button::new(lang.tr("Cancel")).corner_radius(8).min_size(vec2(80.0, 34.0));
+                        let discard = egui::Button::new(egui::RichText::new(lang.tr("Don't Save")).color(tokens.accent))
+                            .corner_radius(8).min_size(vec2(96.0, 34.0));
+                        for (button, answer) in [(save, crate::SaveAnswer::Save), (cancel, crate::SaveAnswer::Cancel), (discard, crate::SaveAnswer::DontSave)] {
+                            if ui.add(button).clicked() && app.answer_save_changes(answer, quitting, ui.ctx()) {
                                 open = false;
                             }
                         }
@@ -380,8 +432,12 @@ pub fn show(app: &mut SheetApp, ctx: &egui::Context) {
                 _ => form(app, ui, &mut d, &mut confirm, &mut open),
             }
         });
-    window_shown(ctx, &mut d, collapsed.is_some(), shown.map(|r| r.response.rect));
-    // Hyperlinks inside dialogs (About ▸ Contributors) open through the host's `open_url`, since
+    let rect = shown.map(|r| r.response.rect);
+    if let Some(rect) = rect {
+        painter.set(surface, acrylic_surface(rect, frame, crate::theme::Tokens::get(ctx).dark));
+    }
+    window_shown(ctx, &mut d, collapsed.is_some(), rect);
+    // Hyperlinks inside dialogs (such as About) open through the host's `open_url`, since
     // the native shell has no browser integration of its own.
     if let Some(open_url) = &app.services.open_url {
         let urls: Vec<String> = ctx.output_mut(|o| {

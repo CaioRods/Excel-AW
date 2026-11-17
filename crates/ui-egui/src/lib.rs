@@ -11,10 +11,10 @@
 #[cfg(not(target_arch = "wasm32"))]
 pub const UPDATE_APP: craft_update::app::App = craft_update::app::App {
     icon_png: Some(include_bytes!("../../../assets/app-icon/hicolor/128x128/apps/ai.storyteller.gridcraft.png")),
-    name: "ExcelAW",
+    name: "Excel AW",
     tagline: "Planilhas e dados",
     repo: "CaioRods/Excel-AW",
-    accent: Some([0xe3, 0x19, 0x23]),
+    accent: Some([0x9b, 0x35, 0x46]),
     ..craft_update::suite::GRIDCRAFT
 };
 
@@ -140,6 +140,8 @@ pub struct UiState {
     /// rather than failing the whole `UiState`.
     #[serde(deserialize_with = "i18n::lenient")]
     pub language: i18n::Language,
+    /// When unset, formula entry follows the interface language.
+    pub formula_language: Option<i18n::Language>,
     /// Interface size in percent on top of the desktop's scale (100 = Auto), applied as egui's
     /// zoom factor so the ribbon, menus, dialogs and grid grow together. Kept within
     /// [`INTERFACE_SCALE_MIN`]..=[`INTERFACE_SCALE_MAX`]; a malformed saved value reads as 100.
@@ -161,6 +163,12 @@ fn lenient_interface_scale<'de, D: serde::Deserializer<'de>>(d: D) -> Result<u16
     Ok(v.as_f64().and_then(clamp_interface_scale).unwrap_or(100))
 }
 
+impl UiState {
+    pub fn formula_locale(&self) -> gridcraft_engine::formula::FormulaLocale {
+        self.formula_language.unwrap_or(self.language).formula_locale()
+    }
+}
+
 impl Default for UiState {
     fn default() -> Self {
         UiState {
@@ -179,6 +187,7 @@ impl Default for UiState {
             keytip_invoke: None,
             keytip_invoke_next: None,
             language: i18n::Language::En,
+            formula_language: None,
             interface_scale: 100,
         }
     }

@@ -31,9 +31,9 @@
     <string>zh-Hans</string>
   </array>
   <key>CFBundleDisplayName</key>
-  <string>ExcelAW</string>
+  <string>Excel AW</string>
   <key>CFBundleName</key>
-  <string>ExcelAW</string>
+  <string>Excel AW</string>
   <key>CFBundleExecutable</key>
   <string>ExcelAW</string>
   <key>CFBundleIdentifier</key>

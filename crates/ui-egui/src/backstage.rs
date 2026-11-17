@@ -112,6 +112,8 @@ const PROPERTIES: [(&str, &str); 6] = [
 #[derive(Clone, Debug)]
 pub struct Backstage {
     pub page: Page,
+    opened_at: Option<f64>,
+    shown_page: Option<(Page, f64)>,
     /// Info: property drafts while a field is being edited (committed when it loses focus).
     props: [String; 6],
     /// Focus at the end of the previous frame, before egui clears it on Esc.
@@ -139,6 +141,8 @@ impl Backstage {
     pub fn new(page: Page) -> Backstage {
         Backstage {
             page,
+            opened_at: None,
+            shown_page: None,
             props: Default::default(),
             text_edit_focused: false,
             print_all: false,
@@ -158,10 +162,29 @@ struct Outcome {
     page: Option<Page>,
 }
 
+/// Start moving promptly, then slow down as the panels settle.
+fn entrance(ui: &Ui, elapsed: f64, duration: f64) -> f32 {
+    if ui.style().animation_time <= 0.0 {
+        return 1.0;
+    }
+    let progress = (elapsed / duration).clamp(0.0, 1.0) as f32;
+    if progress < 1.0 {
+        ui.ctx().request_repaint();
+    }
+    1.0 - (1.0 - progress).powi(2)
+}
+
 /// Draws the Backstage view in place of the ribbon, formula bar, grid and sheet tabs.
 pub fn show(app: &mut SheetApp, ui: &mut Ui) {
     let Some(mut bs) = app.backstage.take() else { return };
     let ctx = ui.ctx().clone();
+    let now = ctx.input(|input| input.time);
+    let opened_at = *bs.opened_at.get_or_insert(now);
+    if !bs.shown_page.is_some_and(|(page, _)| page == bs.page) {
+        bs.shown_page = Some((bs.page, now));
+    }
+    let nav_progress = entrance(ui, now - opened_at, 0.46);
+    let page_progress = entrance(ui, now - bs.shown_page.map_or(now, |(_, start)| start), 0.36);
     // Esc inside a text field leaves the field; it closes the view only from outside one.
     let typing = bs.text_edit_focused;
     let t = Tokens::get(&ctx);
@@ -172,52 +195,72 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
     egui::Panel::left("backstage_nav")
         .exact_size(NAV_W)
         .resizable(false)
-        .frame(egui::Frame::NONE.fill(nav_bg).inner_margin(egui::Margin { left: 0, right: 0, top: 10, bottom: 10 }))
+        .frame(egui::Frame::NONE.fill(t.window).inner_margin(egui::Margin { left: 0, right: 0, top: 10, bottom: 10 }))
         .show(ui, |ui| {
-            ui.spacing_mut().item_spacing.y = 0.0;
-            if nav_item(ui, Icon::Back, lang.tr("Back"), false, nav_text, nav_sel).clicked() {
-                out.close = true;
-            }
-            ui.add_space(10.0);
-            for page in [Page::Home, Page::New, Page::Open] {
-                if nav_item(ui, page.icon(), lang.tr(page.label()), bs.page == page, nav_text, nav_sel).clicked() {
-                    out.page = Some(page);
-                }
-            }
-            nav_separator(ui, nav_text);
-            if nav_item(ui, Page::Info.icon(), lang.tr("Info"), bs.page == Page::Info, nav_text, nav_sel).clicked() {
-                out.page = Some(Page::Info);
-            }
-            if nav_item(ui, Icon::Save, lang.tr("Save"), false, nav_text, nav_sel).clicked() {
-                save(app, &mut out);
-            }
-            for page in [Page::SaveAs, Page::Print, Page::Export] {
-                if nav_item(ui, page.icon(), lang.tr(page.label()), bs.page == page, nav_text, nav_sel).clicked() {
-                    out.page = Some(page);
-                }
-            }
-            if nav_item(ui, Icon::Close, lang.tr("Close"), false, nav_text, nav_sel).clicked() {
-                // A cell still being edited is part of the workbook; Close keeps the unsaved prompt.
-                if app.commit_edit(0, 0, false, false) {
-                    app.run_or_alert("file.close", json!({}));
+            let (top, bottom) = if t.dark {
+                (Color32::from_rgb(91, 52, 48), Color32::from_rgb(46, 33, 34))
+            } else {
+                (Color32::from_rgb(160, 56, 52), Color32::from_rgb(109, 42, 42))
+            };
+            let offset = vec2(-96.0 * (1.0 - nav_progress), 0.0);
+            let nav_rect = ui.clip_rect();
+            let sliding_rect = nav_rect.translate(offset);
+            theme::gradient(ui.painter(), sliding_rect, [top, nav_bg, bottom, bottom]);
+            let content_rect = ui.max_rect().translate(offset);
+            ui.scope_builder(egui::UiBuilder::new().max_rect(content_rect), |ui| {
+                ui.set_clip_rect(nav_rect.intersect(sliding_rect));
+                ui.spacing_mut().item_spacing.y = 2.0;
+                if nav_item(ui, Icon::Back, lang.tr("Back"), false, nav_text, nav_sel).clicked() {
                     out.close = true;
                 }
-            }
-            // Bottom up: Account sits just above Options, as in Excel.
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-                for page in [Page::Options, Page::Account] {
+                ui.add_space(10.0);
+                for page in [Page::Home, Page::New, Page::Open] {
                     if nav_item(ui, page.icon(), lang.tr(page.label()), bs.page == page, nav_text, nav_sel).clicked() {
                         out.page = Some(page);
                     }
                 }
+                nav_separator(ui, nav_text);
+                if nav_item(ui, Page::Info.icon(), lang.tr("Info"), bs.page == Page::Info, nav_text, nav_sel).clicked() {
+                    out.page = Some(Page::Info);
+                }
+                if nav_item(ui, Icon::Save, lang.tr("Save"), false, nav_text, nav_sel).clicked() {
+                    save(app, &mut out);
+                }
+                for page in [Page::SaveAs, Page::Print, Page::Export] {
+                    if nav_item(ui, page.icon(), lang.tr(page.label()), bs.page == page, nav_text, nav_sel).clicked() {
+                        out.page = Some(page);
+                    }
+                }
+                if nav_item(ui, Icon::Close, lang.tr("Close"), false, nav_text, nav_sel).clicked() {
+                    // A cell still being edited is part of the workbook; Close keeps the unsaved prompt.
+                    if app.commit_edit(0, 0, false, false) {
+                        app.run_or_alert("file.close", json!({}));
+                        out.close = true;
+                    }
+                }
+                // Bottom up: Account sits just above Options, as in Excel.
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
+                    for page in [Page::Options, Page::Account] {
+                        if nav_item(ui, page.icon(), lang.tr(page.label()), bs.page == page, nav_text, nav_sel).clicked() {
+                            out.page = Some(page);
+                        }
+                    }
+                });
             });
         });
-    egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.ribbon)).show(ui, |ui| {
+    egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.window)).show(ui, |ui| {
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-            egui::Frame::NONE.inner_margin(egui::Margin { left: 44, right: 32, top: 26, bottom: 32 }).show(ui, |ui| {
+            let travel = 1.0 - page_progress;
+            let margin = egui::Margin { left: 32 + (24.0 * travel).round() as i8, right: 28, top: 26, bottom: 28 };
+            egui::Frame::NONE.inner_margin(margin).show(ui, |ui| {
                 ui.set_max_width(CONTENT_W);
-                ui.label(RichText::new(lang.tr(bs.page.label())).font(theme::ui_font(28.0)).color(t.text));
-                ui.add_space(18.0);
+                ui.multiply_opacity(0.55 + 0.45 * page_progress);
+                ui.add_space(14.0 * travel);
+                ui.label(RichText::new(lang.tr(bs.page.label())).font(theme::ui_bold(28.0)).color(t.text));
+                ui.add_space(5.0);
+                let (underline, _) = ui.allocate_exact_size(vec2(18.0 + 30.0 * page_progress, 3.0), Sense::hover());
+                theme::horizontal_gradient(ui.painter(), underline, t.accent, t.warning_fill);
+                ui.add_space(15.0);
                 match bs.page {
                     Page::Home => home(app, ui, &mut bs, &mut out),
                     Page::New => new_page(app, ui, &mut out),
@@ -273,11 +316,13 @@ fn nav_item(ui: &mut Ui, icon: Icon, label: &str, selected: bool, text: Color32,
     let (rect, resp) = ui.allocate_exact_size(vec2(NAV_W, 38.0), Sense::click());
     resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, selected, label));
     let p = ui.painter();
+    let pill = rect.shrink2(vec2(10.0, 2.0));
     if selected {
-        p.rect_filled(rect, 0.0, sel);
-        p.rect_filled(Rect::from_min_size(rect.min, vec2(4.0, rect.height())), 0.0, text);
-    } else if resp.hovered() {
-        p.rect_filled(rect, 0.0, sel.gamma_multiply(0.55));
+        p.rect_filled(pill, 9.0, sel);
+        let marker = Rect::from_center_size(pos2(pill.left() + 6.0, pill.center().y), vec2(3.0, 14.0));
+        p.rect_filled(marker, 2.0, Color32::from_rgb(0xEE, 0xC6, 0x65));
+    } else if resp.hovered() || resp.has_focus() {
+        p.rect_filled(pill, 9.0, sel.gamma_multiply(0.65));
     }
     icons::paint(p, Rect::from_center_size(pos2(rect.left() + 30.0, rect.center().y), vec2(17.0, 17.0)), icon, text);
     p.text(pos2(rect.left() + 50.0, rect.center().y), Align2::LEFT_CENTER, label, theme::ui_font(14.0), text);
@@ -311,8 +356,8 @@ fn tile(ui: &mut Ui, label: &str, sample: Option<usize>) -> egui::Response {
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, label));
     let p = ui.painter();
     let thumb = Rect::from_min_size(rect.min, vec2(rect.width(), 104.0));
-    p.rect_filled(thumb, 4.0, t.grid_bg);
-    let edge = if resp.hovered() { Stroke::new(2.0, t.accent) } else { Stroke::new(1.0, t.ribbon_border) };
+    p.rect_filled(thumb, 10.0, t.menu_bg);
+    let edge = if resp.hovered() || resp.has_focus() { Stroke::new(2.0, t.accent) } else { Stroke::new(1.0, t.ribbon_border) };
     let inner = thumb.shrink(10.0);
     let (rows, cols) = (7, 4);
     let (rh, cw) = (inner.height() / rows as f32, inner.width() / cols as f32);
@@ -330,13 +375,13 @@ fn tile(ui: &mut Ui, label: &str, sample: Option<usize>) -> egui::Response {
     }
     for r in 0..=rows {
         let y = inner.top() + r as f32 * rh;
-        p.line_segment([pos2(inner.left(), y), pos2(inner.right(), y)], Stroke::new(1.0, t.gridline));
+        p.line_segment([pos2(inner.left(), y), pos2(inner.right(), y)], Stroke::new(1.0, t.input_border));
     }
     for c in 0..=cols {
         let x = inner.left() + c as f32 * cw;
-        p.line_segment([pos2(x, inner.top()), pos2(x, inner.bottom())], Stroke::new(1.0, t.gridline));
+        p.line_segment([pos2(x, inner.top()), pos2(x, inner.bottom())], Stroke::new(1.0, t.input_border));
     }
-    p.rect_stroke(thumb, 4.0, edge, StrokeKind::Inside);
+    p.rect_stroke(thumb, 10.0, edge, StrokeKind::Inside);
     let galley = p.layout(label.to_string(), theme::ui_font(12.5), t.text, rect.width());
     p.galley(pos2(rect.left(), thumb.bottom() + 6.0), galley, t.text);
     resp
@@ -754,13 +799,13 @@ pub fn export_as(app: &mut SheetApp, fmt: &str) -> bool {
         return match app.run(id, json!({"path": path})) {
             Ok(_) => true,
             Err(e) => {
-                app.message = Some(("ExcelAW".into(), crate::clean_error(&e)));
+                app.message = Some(("Excel AW".into(), crate::clean_error(&e)));
                 false
             }
         };
     }
     if app.services.download.is_none() {
-        app.message = Some(("ExcelAW".into(), "Exporting needs a file picker, which this window doesn't have.".into()));
+        app.message = Some(("Excel AW".into(), "Exporting needs a file picker, which this window doesn't have.".into()));
         return false;
     }
     if fmt == "pdf" {
@@ -768,7 +813,7 @@ pub fn export_as(app: &mut SheetApp, fmt: &str) -> bool {
         return match app.run(id, json!({})) {
             Ok(_) => true,
             Err(e) => {
-                app.message = Some(("ExcelAW".into(), crate::clean_error(&e)));
+                app.message = Some(("Excel AW".into(), crate::clean_error(&e)));
                 false
             }
         };
@@ -787,7 +832,7 @@ pub fn export_as(app: &mut SheetApp, fmt: &str) -> bool {
             }
         }
         Err(e) => {
-            app.message = Some(("ExcelAW".into(), crate::clean_error(&e)));
+            app.message = Some(("Excel AW".into(), crate::clean_error(&e)));
             false
         }
     }
@@ -798,7 +843,7 @@ fn account(app: &mut SheetApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
     let lang = app.ui.language;
     section(ui, lang, "Product Information");
-    ui.label(RichText::new("ExcelAW").font(theme::ui_bold(16.0)).color(t.text));
+    ui.label(RichText::new("Excel AW").font(theme::ui_bold(16.0)).color(t.text));
     ui.add_space(8.0);
     egui::Grid::new("backstage_account").num_columns(2).spacing(vec2(18.0, 8.0)).show(ui, |ui| {
         for (label, value) in
@@ -811,14 +856,14 @@ fn account(app: &mut SheetApp, ui: &mut Ui) {
     });
     ui.add_space(18.0);
     ui.horizontal(|ui| {
-        if square_button(ui, Icon::Info, lang.tr("About ExcelAW")).clicked() {
+        if square_button(ui, Icon::Info, lang.tr("About Excel AW")).clicked() {
             app.open_dialog("about", json!({}));
         }
         ui.add_space(12.0);
         ui.vertical(|ui| {
             ui.add_space(14.0);
-            ui.label(RichText::new(lang.tr("About ExcelAW")).font(theme::ui_bold(13.5)).color(t.text));
-            dim(ui, lang.tr("Version, contributors and the AI models that helped"));
+            ui.label(RichText::new(lang.tr("About Excel AW")).font(theme::ui_bold(13.5)).color(t.text));
+            dim(ui, lang.tr("Version and author"));
         });
     });
 }

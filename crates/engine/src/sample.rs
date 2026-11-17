@@ -8,7 +8,8 @@ use serde_json::json;
 
 use crate::{DocState, Session};
 
-pub const SAMPLES: &[(&str, &str)] = &[("budget", "Household Budget"), ("sales", "Quarterly Sales Dashboard"), ("grades", "Gradebook")];
+pub const SAMPLES: &[(&str, &str)] =
+    &[("recebimento", "Conferência de recebimento"), ("budget", "Household Budget"), ("sales", "Quarterly Sales Dashboard"), ("grades", "Gradebook")];
 
 pub fn title(name: &str) -> String {
     SAMPLES.iter().find(|(n, _)| *n == name).map(|(_, t)| t.to_string()).unwrap_or_else(|| "Sample".into())
@@ -20,6 +21,7 @@ pub fn build(name: &str) -> Option<Workbook> {
     let mut wb = Workbook::new();
     if let Some(sh) = wb.sheet_mut(0) {
         sh.name = match name {
+            "recebimento" => "Recebimento".into(),
             "budget" => "Budget".into(),
             "sales" => "Sales".into(),
             "grades" => "Grades".into(),
@@ -28,6 +30,7 @@ pub fn build(name: &str) -> Option<Workbook> {
     }
     s.add_document(DocState::new(wb, None, title(name), crate::Trust::Local));
     let ok = match name {
+        "recebimento" => recebimento(&mut s),
         "budget" => budget(&mut s),
         "sales" => sales(&mut s),
         "grades" => grades(&mut s),
@@ -52,6 +55,43 @@ fn run(s: &mut Session, id: &str, p: serde_json::Value) -> bool {
             false
         }
     }
+}
+
+fn recebimento(s: &mut Session) -> bool {
+    let rows = json!([[
+        "Data",
+        "Fornecedor",
+        "Pedido",
+        "Nota fiscal",
+        "Produto",
+        "Lote",
+        "Validade",
+        "Qtd. pedida",
+        "Qtd. recebida",
+        "Diferença",
+        "Situação"
+    ]]);
+    let mut ok = run(s, "range.setValues", json!({"range": "A4", "values": rows}));
+    ok &= run(s, "range.setValues", json!({"range": "A1", "values": [["Conferência de recebimento"]]}));
+    ok &= run(s, "home.cellStyle", json!({"range": "A1", "name": "Title"}));
+    ok &= run(s, "range.setValues", json!({"range": "A2", "values": [["Use a mesma unidade nas duas quantidades para conferir cada item."]]}));
+    for row in 5..=24 {
+        ok &= run(s, "cell.set", json!({"cell": format!("J{row}"), "input": format!("=IF(COUNT(H{row}:I{row})=2,I{row}-H{row},\"\")")}));
+        ok &= run(
+            s,
+            "cell.set",
+            json!({"cell": format!("K{row}"), "input": format!("=IF(COUNT(H{row}:I{row})<2,\"\",IF(J{row}=0,\"Conferido\",\"Divergência\"))")}),
+        );
+    }
+    ok &= run(s, "insert.table", json!({"range": "A4:K24", "style": "TableStyleMedium2", "name": "Recebimento"}));
+    ok &= run(s, "home.numberFormat", json!({"range": "A5:A24", "code": "dd/mm/yyyy"}));
+    ok &= run(s, "home.numberFormat", json!({"range": "G5:G24", "code": "dd/mm/yyyy"}));
+    ok &= run(s, "home.numberFormat", json!({"range": "C5:D24", "code": "@"}));
+    ok &= run(s, "home.numberFormat", json!({"range": "F5:F24", "code": "@"}));
+    for (cols, width) in [("A:A", 100), ("B:B", 174), ("C:D", 100), ("E:E", 174), ("F:G", 105), ("H:K", 117)] {
+        ok &= run(s, "home.columnWidth", json!({"cols": cols, "width": width}));
+    }
+    ok
 }
 
 fn sales(s: &mut Session) -> bool {

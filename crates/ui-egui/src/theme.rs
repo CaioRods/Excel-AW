@@ -160,6 +160,20 @@ impl Cat {
     pub const ALL: [Cat; 8] = [Cat::Blue, Cat::Green, Cat::Orange, Cat::Red, Cat::Purple, Cat::Teal, Cat::Amber, Cat::Slate];
 }
 
+pub(crate) fn horizontal_gradient(painter: &egui::Painter, rect: egui::Rect, left: Color32, right: Color32) {
+    gradient(painter, rect, [left, right, right, left]);
+}
+
+pub(crate) fn gradient(painter: &egui::Painter, rect: egui::Rect, colors: [Color32; 4]) {
+    let mut mesh = egui::Mesh::default();
+    for (point, color) in [rect.left_top(), rect.right_top(), rect.right_bottom(), rect.left_bottom()].into_iter().zip(colors) {
+        mesh.colored_vertex(point, color);
+    }
+    mesh.add_triangle(0, 1, 2);
+    mesh.add_triangle(0, 2, 3);
+    painter.add(egui::Shape::mesh(mesh));
+}
+
 const fn rgb(hex: u32) -> Color32 {
     Color32::from_rgb((hex >> 16) as u8, (hex >> 8) as u8, hex as u8)
 }
@@ -222,9 +236,9 @@ impl Tokens {
             text: pick(dark, Color32::from_rgb(0x24, 0x24, 0x24), Color32::from_rgb(0xEE, 0xEE, 0xEE)),
             text_dim: pick(dark, Color32::from_rgb(0x61, 0x61, 0x61), Color32::from_rgb(0xB0, 0xB0, 0xB0)),
             text_disabled: pick(dark, Color32::from_rgb(0xB0, 0xB0, 0xB0), Color32::from_rgb(0x70, 0x70, 0x70)),
-            accent: pick(dark, Color32::from_rgb(0xE3, 0x19, 0x23), Color32::from_rgb(0xFF, 0x8A, 0x91)),
-            accent_dark: pick(dark, Color32::from_rgb(0xB4, 0x12, 0x1B), Color32::from_rgb(0xF2, 0x65, 0x6F)),
-            accent_soft: pick(dark, Color32::from_rgb(0xFD, 0xE8, 0xEA), Color32::from_rgb(0x58, 0x24, 0x29)),
+            accent: pick(dark, rgb(0xA13D3A), rgb(0xF0A59C)),
+            accent_dark: pick(dark, rgb(0x7C302F), rgb(0xF6B7AE)),
+            accent_soft: pick(dark, rgb(0xFAEEEA), rgb(0x49332F)),
             hover: pick(dark, Color32::from_rgb(0xEB, 0xEB, 0xEB), Color32::from_rgb(0x42, 0x42, 0x42)),
             pressed: pick(dark, Color32::from_rgb(0xDD, 0xDD, 0xDD), Color32::from_rgb(0x4D, 0x4D, 0x4D)),
             separator: pick(dark, Color32::from_rgb(0xE0, 0xE0, 0xE0), Color32::from_rgb(0x48, 0x48, 0x48)),
@@ -235,11 +249,11 @@ impl Tokens {
             header_text: pick(dark, Color32::from_rgb(0x42, 0x42, 0x42), Color32::from_rgb(0xCC, 0xCC, 0xCC)),
             header_line: pick(dark, Color32::from_rgb(0xD6, 0xD6, 0xD6), Color32::from_rgb(0x45, 0x45, 0x45)),
             header_sel_bg: pick(dark, Color32::from_rgb(0xE1, 0xE1, 0xE1), Color32::from_rgb(0x45, 0x45, 0x45)),
-            header_sel_text: pick(dark, Color32::from_rgb(0xB4, 0x12, 0x1B), Color32::from_rgb(0xFF, 0xA6, 0xAC)),
-            header_all_bg: pick(dark, Color32::from_rgb(0xF8, 0xCF, 0xD2), Color32::from_rgb(0x66, 0x2A, 0x30)),
-            sel_fill: pick(dark, Color32::from_rgba_unmultiplied(0xE3, 0x19, 0x23, 0x1C), Color32::from_rgba_unmultiplied(0xE3, 0x19, 0x23, 0x24)),
-            active_row: pick(dark, Color32::from_rgba_unmultiplied(0xE3, 0x19, 0x23, 0x2C), Color32::from_rgba_unmultiplied(0xFF, 0xA6, 0xAC, 0x30)),
-            sel_border: Color32::from_rgb(0xE3, 0x19, 0x23),
+            header_sel_text: pick(dark, rgb(0x7C302F), rgb(0xF6B7AE)),
+            header_all_bg: pick(dark, Color32::from_rgb(0xF4, 0xDE, 0xDF), Color32::from_rgb(0x59, 0x3E, 0x47)),
+            sel_fill: pick(dark, Color32::from_rgba_unmultiplied(0xA1, 0x3D, 0x3A, 0x1C), Color32::from_rgba_unmultiplied(0xA1, 0x3D, 0x3A, 0x24)),
+            active_row: pick(dark, Color32::from_rgba_unmultiplied(0xA1, 0x3D, 0x3A, 0x2C), Color32::from_rgba_unmultiplied(0xF6, 0xB7, 0xAE, 0x30)),
+            sel_border: rgb(0xA13D3A),
             input_bg: pick(dark, Color32::WHITE, Color32::from_rgb(0x1F, 0x1F, 0x1F)),
             input_border: pick(dark, Color32::from_rgb(0xD1, 0xD1, 0xD1), Color32::from_rgb(0x50, 0x50, 0x50)),
             tab_bar: pick(dark, Color32::from_rgb(0xF3, 0xF3, 0xF3), Color32::from_rgb(0x29, 0x29, 0x29)),
@@ -250,13 +264,13 @@ impl Tokens {
             shadow: pick(dark, Color32::from_black_alpha(40), Color32::from_black_alpha(90)),
             danger: pick(dark, Color32::from_rgb(0xC4, 0x2B, 0x1C), Color32::from_rgb(0xFF, 0x95, 0x85)),
             error_check_green: pick(dark, Color32::from_rgb(0x1E, 0x8E, 0x3E), Color32::from_rgb(0x4C, 0xC2, 0x6B)),
-            warning_fill: Color32::from_rgb(0xF2, 0xB7, 0x05),
+            warning_fill: Color32::from_rgb(0xEE, 0xC6, 0x65),
             warning_ink: Color32::BLACK,
             notice_warn_bg: pick(dark, Color32::from_rgb(0xFF, 0xF4, 0xCE), Color32::from_rgb(0x4A, 0x3F, 0x1E)),
             notice_warn_border: pick(dark, Color32::from_rgb(0xF0, 0xC3, 0x6E), Color32::from_rgb(0x7A, 0x67, 0x30)),
             notice_info_bg: pick(dark, Color32::from_rgb(0xEA, 0xF2, 0xFB), Color32::from_rgb(0x24, 0x33, 0x44)),
             notice_info_border: pick(dark, Color32::from_rgb(0xB9, 0xD2, 0xEC), Color32::from_rgb(0x3B, 0x55, 0x72)),
-            on_accent: pick(dark, Color32::WHITE, rgb(0x3A0B10)),
+            on_accent: pick(dark, Color32::WHITE, rgb(0x351C25)),
             cat: pick(
                 dark,
                 [rgb(0x2F6FCF), rgb(0x1E8A4C), rgb(0xC8601A), rgb(0xC8372D), rgb(0x8350C8), rgb(0x13808A), rgb(0x9C6C00), rgb(0x5A6B7D)],
@@ -270,7 +284,7 @@ impl Tokens {
             ),
             sheet_ref_colors: SHEET_REF_COLORS,
             syntax: pick(dark, LIGHT_SYNTAX, DARK_SYNTAX),
-            warning: rgb(0xF2C32E),
+            warning: rgb(0xEEC665),
             on_warning: rgb(0x1F1F1F),
             sheet_control_bg: SHEET_CONTROL_BG,
             sheet_control_border: SHEET_CONTROL_BORDER,
@@ -352,7 +366,9 @@ pub fn apply(ctx: &egui::Context, dark: bool) {
         v.widgets.hovered.corner_radius = egui::CornerRadius::same(3);
         v.widgets.active.corner_radius = egui::CornerRadius::same(2);
         v.widgets.open.corner_radius = egui::CornerRadius::same(2);
-        v.window_corner_radius = egui::CornerRadius::same(10);
+        v.window_corner_radius = egui::CornerRadius::same(15);
+        v.window_stroke = Stroke::new(1.0, t.input_border);
+        v.window_shadow = egui::epaint::Shadow { offset: [0, 8], blur: 24, spread: 0, color: t.shadow };
         v.menu_corner_radius = egui::CornerRadius::same(8);
         v.popup_shadow = egui::epaint::Shadow { offset: [0, 4], blur: 16, spread: 0, color: t.shadow };
         ctx.set_visuals_of(theme, v);
@@ -360,6 +376,7 @@ pub fn apply(ctx: &egui::Context, dark: bool) {
     ctx.options_mut(|o| o.fallback_theme = egui::Theme::Light);
     ctx.set_theme(if dark { egui::Theme::Dark } else { egui::Theme::Light });
     ctx.all_styles_mut(|s| {
+        s.spacing.window_margin = egui::Margin::symmetric(16, 13);
         s.spacing.item_spacing = egui::vec2(6.0, 4.0);
         s.spacing.button_padding = egui::vec2(6.0, 3.0);
         s.spacing.interact_size.y = 22.0;

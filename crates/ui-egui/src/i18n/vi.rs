@@ -256,7 +256,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Command\nPalette" => "Bảng\nlệnh",
         "Agent\nControl" => "Điều khiển\nagent",
         "Action\nJournal" => "Nhật ký\nthao tác",
-        "About\nExcelAW" => "Giới thiệu\nExcelAW",
+        "About\nExcel AW" => "Giới thiệu\nExcel AW",
         "Share" => "Chia sẻ",
         "Add Chart\nElement" => "Thêm thành phần\nbiểu đồ",
         "Change\nChart Type" => "Đổi kiểu\nbiểu đồ",

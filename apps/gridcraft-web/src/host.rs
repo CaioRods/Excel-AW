@@ -7,7 +7,7 @@
 //!   `postMessage`; `data-host="page"` on the canvas (the page's own document, no iframe) uses
 //!   DOM `CustomEvent`s on the canvas instead. `?host=parent` wins when both are present. With no
 //!   parent, or a parent on another origin, there is no bridge: the normal app with downloads.
-//! - `gridcraft:ready` once the app is listening; send a file now. GridCraft reads bytes, so it
+//! - `gridcraft:ready` once the app is listening; send a file now. ExcelAW reads bytes, so it
 //!   says `file: false` and a host sends `bytes`.
 //! - `gridcraft:open` (from the host): `{ name, bytes }`. It opens like a workbook picked with
 //!   File › Open or dropped on the window; a file over [`MAX_OPEN_BYTES`] is refused before it is
@@ -123,7 +123,7 @@ impl Bridge {
 /// the app's memory (the data's own length, not the host's claim).
 fn deliver_open(inbox: &Inbox, ctx: &egui::Context, name: &str, data: &FileData) {
     let FileData::Bytes(array) = data else {
-        log::warn!("host file {name} came as a File; GridCraft reads bytes only; not opened");
+        log::warn!("host file {name} came as a File; ExcelAW reads bytes only; not opened");
         return;
     };
     if data.size() > MAX_OPEN_BYTES as f64 {

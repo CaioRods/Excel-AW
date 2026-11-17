@@ -1271,8 +1271,8 @@ impl PdfDoc {
         dict_obj(&mut out, &mut offsets, 1, "<< /Type /Catalog /Pages 2 0 R >>");
         let kids_s: Vec<String> = kids.iter().map(|k| format!("{k} 0 R")).collect();
         dict_obj(&mut out, &mut offsets, 2, &format!("<< /Type /Pages /Kids [{}] /Count {} >>", kids_s.join(" "), kids.len()));
-        let creator = if self.info.creator.is_empty() { "GridCraft" } else { &self.info.creator };
-        let mut info = format!("<< /Producer {} /Creator {}", pdf_text_string("GridCraft PDF"), pdf_text_string(creator));
+        let creator = if self.info.creator.is_empty() { "ExcelAW" } else { &self.info.creator };
+        let mut info = format!("<< /Producer {} /Creator {}", pdf_text_string("ExcelAW PDF"), pdf_text_string(creator));
         if !self.info.title.is_empty() {
             let _ = write!(info, " /Title {}", pdf_text_string(&self.info.title));
         }

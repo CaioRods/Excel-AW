@@ -1,0 +1,51 @@
+#!/bin/sh
+set -eu
+
+workspace_version() {
+    awk '
+        /^\[/ { workspace = ($0 == "[workspace.package]") }
+        workspace && /^version = "/ { split($0, parts, "\""); print parts[2]; exit }
+    '
+}
+
+if git diff --cached --quiet; then
+    exit 0
+fi
+
+base=$(git show HEAD:Cargo.toml | workspace_version)
+staged=$(git show :Cargo.toml | workspace_version)
+next=$(printf '%s\n' "$base" | awk -F. 'NF == 3 && $0 ~ /^[0-9]+\.[0-9]+\.[0-9]+$/ { printf "%s.%s.%d\n", $1, $2, $3 + 1 }')
+if [ -z "$next" ]; then
+    echo 'Defina a próxima versão pelo cargo xtask version set.' >&2
+    exit 1
+fi
+if [ "$staged" != "$base" ]; then
+    [ "$staged" = "$next" ] || {
+        echo "A versão deste commit deve ser $next." >&2
+        exit 1
+    }
+    exit 0
+fi
+
+git diff --quiet -- Cargo.toml Cargo.lock || {
+    echo 'Inclua no stage as alterações em Cargo.toml e Cargo.lock antes de fazer o commit.' >&2
+    exit 1
+}
+
+manifest=$(mktemp)
+lock=$(mktemp)
+trap 'rm -f "$manifest" "$lock"' 0
+awk -v new_version="$next" '
+    /^\[/ { workspace = ($0 == "[workspace.package]") }
+    workspace && /^version = "/ { $0 = "version = \"" new_version "\"" }
+    { print }
+' Cargo.toml > "$manifest"
+awk -v old="$base" -v new_version="$next" '
+    /^name = / { member = ($0 ~ /^name = "(gridcraft(-[^"]+)?|xtask)"$/) }
+    member && $0 == "version = \"" old "\"" { $0 = "version = \"" new_version "\"" }
+    { print }
+' Cargo.lock > "$lock"
+cat "$manifest" > Cargo.toml
+cat "$lock" > Cargo.lock
+git add -- Cargo.toml Cargo.lock
+echo "ExcelAW $next"

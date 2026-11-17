@@ -4,6 +4,9 @@
 /// Returns the Portuguese translation for `text`, or `None` so callers fall back to English.
 pub(super) fn translate(text: &str) -> Option<&'static str> {
     Some(match text {
+        "Version and author" => "Versão e autor",
+        "Formula language" => "Idioma das fórmulas",
+        "Follow interface language" => "Seguir o idioma da interface",
         "Edited" => "Editado",
         "20% - Accent1" => "20% - Ênfase 1",
         "20% - Accent2" => "20% - Ênfase 2",
@@ -207,8 +210,8 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Duplicate Values…" => "Valores Duplicados…",
         "Each column must hold:" => "Cada coluna deve conter:",
         "Example (what Check, Run and Debug use here):" => "Exemplo (usado aqui por Verificar, Executar e Depurar):",
-        "ExcelAW is fully drivable by agents. Every menu item, button and gesture is a command:" => {
-            "O ExcelAW pode ser controlado por agentes. Cada item de menu, botão e gesto corresponde a um comando:"
+        "Excel AW is fully drivable by agents. Every menu item, button and gesture is a command:" => {
+            "O Excel AW pode ser controlado por agentes. Cada item de menu, botão e gesto corresponde a um comando:"
         }
         "For each" => "Para cada",
         "Formula" => "Fórmula",
@@ -283,7 +286,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "New Window" => "Nova Janela",
         "Agent Control (MCP)…" => "Controle por Agentes (MCP)…",
         "Contributors…" => "Colaboradores…",
-        "ExcelAW on getartcraft.com" => "Projeto original GridCraft",
+        "Excel AW on GitHub" => "Excel AW no GitHub",
         "Join the ArtCraft Discord…" => "Comunidade ArtCraft no Discord…",
         "Tools" => "Ferramentas",
         "Window" => "Janela",
@@ -312,6 +315,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
             "Nenhuma impressora encontrada. Configure uma impressora no sistema ou exporte um PDF."
         }
         "One-sided" => "Somente frente",
+        "Editing and saving" => "Edição e salvamento",
         "Options|Editing" => "Edição",
         "PivotTable Fields" => "Campos da Tabela Dinâmica",
         "Print failed: the printing worker stopped." => "Falha na impressão: o processo de impressão foi interrompido.",
@@ -591,7 +595,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Command\nPalette" => "Paleta de\nComandos",
         "Agent\nControl" => "Controle\ndo Agente",
         "Action\nJournal" => "Registro\nde Ações",
-        "About\nExcelAW" => "Sobre o\nExcelAW",
+        "About\nExcel AW" => "Sobre o\nExcel AW",
         "Share" => "Compartilhar",
         "Add Chart\nElement" => "Adicionar\nElemento de Gráfico",
         "Change\nChart Type" => "Alterar\nTipo de Gráfico",
@@ -854,7 +858,9 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Conditional Formatting Rules Manager" => "Gerenciador de Regras de Formatação Condicional",
         "Search Commands" => "Pesquisar Comandos",
         "Agent Control" => "Controle por Agentes",
-        "About ExcelAW" => "Sobre o ExcelAW",
+        "About Excel AW" => "Sobre o Excel AW",
+        "Edition author" => "Autor da edição",
+        "Licenses and attribution" => "Licenças e atribuições",
         "Insert Chart" => "Inserir Gráfico",
         "Select Data Source" => "Selecionar Fonte de Dados",
         "Action Journal" => "Registro de Ações",
@@ -1281,7 +1287,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Hide Sheet" => "Ocultar Planilha",
         "Hierarchy & more" => "Hierarquia e mais",
         "Highlighter" => "Marca-texto",
-        "How agents drive ExcelAW (MCP / control channel)" => "Como os agentes controlam o ExcelAW (MCP / canal de controle)",
+        "How agents drive Excel AW (MCP / control channel)" => "Como os agentes controlam o Excel AW (MCP / canal de controle)",
         "Import a text or CSV file" => "Importar um arquivo de texto ou CSV",
         "Insert Function" => "Inserir Função",
         "Insert Function (⇧F3)" => "Inserir Função (⇧F3)",

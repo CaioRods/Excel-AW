@@ -1,56 +1,68 @@
-use super::{Key, Language, Modifiers, SheetApp, Ui, dim, i18n, json, section, vec2};
+use super::{Key, Language, Modifiers, SheetApp, Ui, dim, i18n, json, vec2};
 
-/// Excel's File › Options page: General (display theme, interface language and Show formula bar),
-/// Editing (AutoComplete) and Save (the autosave checkbox toggling `app.ui.autosave`), plus Formulas
-/// (calculation mode and iterative calculation) and the display options for this workbook (sheet
-/// tabs and scroll bars) when a document is active. Theme, language, formula
-/// bar, AutoComplete and calculation changes run their commands through `run_or_alert`; calculation
-/// settings are saved with the workbook.
+use crate::theme::{self, Tokens};
+
 pub(super) fn options(app: &mut SheetApp, ui: &mut Ui) {
     let lang = app.ui.language;
-    section(ui, lang, "Options|General");
-    general_options(app, ui, lang);
-    ui.add_space(6.0);
-    let mut formula_bar = app.session.prefs.formula_bar;
-    if ui.checkbox(&mut formula_bar, lang.tr("Show formula bar")).changed() {
-        app.run_or_alert("view.formulaBar", json!({"on": formula_bar}));
-    }
-    let mut highlight_row = app.ui.highlight_active_row;
-    if ui.checkbox(&mut highlight_row, lang.tr("Highlight the active cell's row")).changed() {
-        app.run_or_alert("options.highlightActiveRow", json!({"on": highlight_row}));
-    }
-    ui.add_space(18.0);
-    section(ui, lang, "Options|Editing");
-    let mut autocomplete = app.ui.autocomplete;
-    if ui.checkbox(&mut autocomplete, lang.tr("Enable AutoComplete for cell values")).changed() {
-        app.run_or_alert("options.autoComplete", json!({"on": autocomplete}));
-    }
-    ui.add_space(18.0);
-    section(ui, lang, "Options|Save");
-    let mut autosave = app.ui.autosave;
-    if ui.checkbox(&mut autosave, lang.tr("Save .xlsx workbooks automatically after every change")).changed() {
-        app.toggle_autosave();
-    }
-    let Some((calc, view)) = app.session.active().map(|d| (d.wb.calc.clone(), d.wb.view)) else { return };
-    ui.add_space(18.0);
-    // Excel's Advanced › Display options for this workbook: saved with the workbook (#3101).
-    section(ui, lang, "Display options for this workbook");
-    for (on, label, id) in [
-        (view.show_horizontal_scroll, "Show horizontal scroll bar", "view.showHorizontalScrollBar"),
-        (view.show_vertical_scroll, "Show vertical scroll bar", "view.showVerticalScrollBar"),
-        (view.show_sheet_tabs, "Show sheet tabs", "view.showSheetTabs"),
-    ] {
-        let mut on = on;
-        if ui.checkbox(&mut on, lang.tr(label)).changed() {
-            app.run_or_alert(id, json!({"on": on}));
+    settings_group(ui, lang, "Options|General", |ui| {
+        general_options(app, ui, lang);
+        ui.separator();
+        let mut formula_bar = app.session.prefs.formula_bar;
+        if ui.checkbox(&mut formula_bar, lang.tr("Show formula bar")).changed() {
+            app.run_or_alert("view.formulaBar", json!({"on": formula_bar}));
         }
-    }
-    ui.add_space(18.0);
-    section(ui, lang, "Formulas");
-    ui.label(lang.tr("Workbook calculation"));
-    calc_options(app, ui, lang, &calc);
-    ui.add_space(6.0);
-    dim(ui, lang.tr("Calculation settings are saved with the workbook."));
+        let mut highlight_row = app.ui.highlight_active_row;
+        if ui.checkbox(&mut highlight_row, lang.tr("Highlight the active cell's row")).changed() {
+            app.run_or_alert("options.highlightActiveRow", json!({"on": highlight_row}));
+        }
+    });
+    settings_group(ui, lang, "Editing and saving", |ui| {
+        let mut autocomplete = app.ui.autocomplete;
+        if ui.checkbox(&mut autocomplete, lang.tr("Enable AutoComplete for cell values")).changed() {
+            app.run_or_alert("options.autoComplete", json!({"on": autocomplete}));
+        }
+        let mut autosave = app.ui.autosave;
+        if ui.checkbox(&mut autosave, lang.tr("Save .xlsx workbooks automatically after every change")).changed() {
+            app.toggle_autosave();
+        }
+    });
+    let Some((calc, view)) = app.session.active().map(|d| (d.wb.calc.clone(), d.wb.view)) else { return };
+    settings_group(ui, lang, "Display options for this workbook", |ui| {
+        for (on, label, id) in [
+            (view.show_horizontal_scroll, "Show horizontal scroll bar", "view.showHorizontalScrollBar"),
+            (view.show_vertical_scroll, "Show vertical scroll bar", "view.showVerticalScrollBar"),
+            (view.show_sheet_tabs, "Show sheet tabs", "view.showSheetTabs"),
+        ] {
+            let mut on = on;
+            if ui.checkbox(&mut on, lang.tr(label)).changed() {
+                app.run_or_alert(id, json!({"on": on}));
+            }
+        }
+    });
+    settings_group(ui, lang, "Formulas", |ui| {
+        ui.label(lang.tr("Workbook calculation"));
+        calc_options(app, ui, lang, &calc);
+        ui.separator();
+        dim(ui, lang.tr("Calculation settings are saved with the workbook."));
+    });
+}
+
+fn settings_group(ui: &mut Ui, lang: Language, title: &str, contents: impl FnOnce(&mut Ui)) {
+    let t = Tokens::get(ui.ctx());
+    let width = ui.available_width().min(640.0);
+    egui::Frame::new()
+        .fill(t.menu_bg)
+        .stroke(egui::Stroke::new(1.0, t.ribbon_border))
+        .corner_radius(13)
+        .inner_margin(egui::Margin::symmetric(16, 12))
+        .show(ui, |ui| {
+            ui.set_width((width - 34.0).max(0.0));
+            ui.spacing_mut().item_spacing.y = 7.0;
+            ui.label(egui::RichText::new(lang.tr(title)).font(theme::ui_bold(15.0)).color(t.accent));
+            ui.add_space(2.0);
+            contents(ui);
+        });
+    ui.add_space(8.0);
 }
 
 /// The display theme and interface language controls of the General section.
@@ -84,6 +96,22 @@ fn general_options(app: &mut SheetApp, ui: &mut Ui, lang: Language) {
                 for l in i18n::Language::for_picker() {
                     if ui.selectable_label(l == lang, l.name()).clicked() {
                         app.run_or_alert("app.language.set", json!({"language": l.code()}));
+                    }
+                }
+            })
+            .response
+            .labelled_by(label.id);
+        ui.end_row();
+        let label = ui.label(lang.tr("Formula language"));
+        let current = app.ui.formula_language;
+        craft_ui::ComboBox::from_id_salt("formula_language")
+            .width(160.0)
+            .selected_text(current.map_or_else(|| lang.tr("Follow interface language"), Language::name))
+            .show_ui(ui, |ui| {
+                for choice in [None, Some(Language::PtBr), Some(Language::En), Some(Language::Es)] {
+                    let name = choice.map_or_else(|| lang.tr("Follow interface language"), Language::name);
+                    if ui.selectable_label(choice == current, name).clicked() {
+                        app.ui.formula_language = choice;
                     }
                 }
             })
@@ -164,7 +192,7 @@ fn iteration_options(app: &mut SheetApp, ui: &mut Ui, lang: Language, calc: &gri
 /// committed the field is consumed so it doesn't also dismiss the message box in this frame.
 fn refuse(app: &mut SheetApp, ui: &mut Ui, text: &str) {
     ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter));
-    app.message = Some(("ExcelAW".into(), app.ui.language.tr(text).into()));
+    app.message = Some(("Excel AW".into(), app.ui.language.tr(text).into()));
 }
 
 /// Maximum Iterations as typed: a whole number from 1 to 32767, or `None` (Excel refuses others).

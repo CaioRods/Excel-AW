@@ -36,6 +36,9 @@ pub fn title_bar(app: &mut SheetApp, ui: &mut Ui) {
     let ch = TITLE_CONTROL_H;
     egui::Panel::top("title_bar").exact_size(TITLE_BAR_H).frame(egui::Frame::NONE.fill(t.window)).show(ui, |ui| {
         let rect = ui.max_rect();
+        let (start, end) =
+            if t.dark { (Color32::from_rgb(61, 43, 41), Color32::from_rgb(49, 44, 36)) } else { (t.accent_soft, Color32::from_rgb(252, 247, 234)) };
+        theme::horizontal_gradient(ui.painter(), rect, start, end);
         // Dragging the empty title area moves the window.
         let bg = ui.interact(rect, ui.scope_id().with("drag_title"), Sense::click_and_drag());
         if bg.drag_started() {

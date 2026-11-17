@@ -515,7 +515,7 @@ pub fn macros_dialog(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, open: &mut
     if vba {
         ui.add_space(6.0);
         ui.label(
-            egui::RichText::new("Esta pasta de trabalho também contém um projeto VBA. O ExcelAW o preserva ao salvar, mas não o executa.")
+            egui::RichText::new("Esta pasta de trabalho também contém um projeto VBA. O Excel AW o preserva ao salvar, mas não o executa.")
                 .color(t.text_dim),
         );
     }

@@ -1273,14 +1273,11 @@ fn solver_results_write_the_chosen_reports() {
 }
 
 #[test]
-fn about_renders_every_tab() {
+fn about_shows_excelaw_author() {
     let mut h = harness(blank());
-    for tab in ["About", "Contributors", "Models"] {
-        h.state_mut().open_dialog("about", json!({"tab": tab}));
-        h.run_steps(2);
-        assert_eq!(h.state().dialog.as_ref().map(|d| d.tab.clone()).as_deref(), Some(tab));
-        h.state_mut().dialog = None;
-    }
+    h.state_mut().open_dialog("about", json!({}));
+    h.run_steps(2);
+    assert!(h.query_by_label("Caio Victor Rodrigues").is_some());
 }
 
 #[test]

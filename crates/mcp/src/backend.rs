@@ -129,7 +129,7 @@ impl Backend for Remote {
                 self.conn = None;
                 self.roundtrip(&line).map_err(|e| {
                     self.conn = None;
-                    format!("GridCraft app at {} is not reachable: {e}", self.addr)
+                    format!("ExcelAW app at {} is not reachable: {e}", self.addr)
                 })?
             }
         };
@@ -146,6 +146,6 @@ impl Backend for Remote {
     }
 
     fn describe(&self) -> String {
-        format!("connected to the GridCraft app at {}", self.addr)
+        format!("connected to the ExcelAW app at {}", self.addr)
     }
 }

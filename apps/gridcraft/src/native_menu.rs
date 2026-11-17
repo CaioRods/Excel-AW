@@ -184,7 +184,7 @@ fn tree() -> Vec<(&'static str, Vec<Entry>)> {
                 ("Check for Updates…", "app.checkForUpdates", None),
                 ("Agent Control (MCP)…", "dialog:agents", None),
                 ("Contributors…", "dialog:about:Contributors", None),
-                ("ExcelAW on getartcraft.com", "url:https://getartcraft.com/apps/gridcraft", None),
+                ("Excel AW on GitHub", "url:https://github.com/CaioRods/Excel-AW", None),
                 ("Join the ArtCraft Discord…", "url:https://discord.gg/artcraft", None),
             ],
         ),
@@ -222,18 +222,18 @@ fn select_theme(app: &mut SheetApp, id: &str) -> bool {
 impl NativeMenu {
     pub fn install(ctx: &egui::Context) -> NativeMenu {
         let menu = Menu::new();
-        let app_menu = Submenu::new("ExcelAW", true);
-        let about = MenuItem::with_id("dialog:about", "Sobre o ExcelAW", true, None);
+        let app_menu = Submenu::new("Excel AW", true);
+        let about = MenuItem::with_id("dialog:about", "Sobre o Excel AW", true, None);
         let _ = app_menu.append_items(&[
             &about,
             &PredefinedMenuItem::separator(),
             &PredefinedMenuItem::services(Some("Serviços")),
             &PredefinedMenuItem::separator(),
-            &PredefinedMenuItem::hide(Some("Ocultar ExcelAW")),
+            &PredefinedMenuItem::hide(Some("Ocultar Excel AW")),
             &PredefinedMenuItem::hide_others(Some("Ocultar Outros")),
             &PredefinedMenuItem::show_all(Some("Mostrar Todos")),
             &PredefinedMenuItem::separator(),
-            &MenuItem::with_id(QUIT, "Sair do ExcelAW", true, Accelerator::from_str("CMD+Q").ok()),
+            &MenuItem::with_id(QUIT, "Sair do Excel AW", true, Accelerator::from_str("CMD+Q").ok()),
         ]);
         let _ = menu.append(&app_menu);
         let mut theme_items = Vec::new();
