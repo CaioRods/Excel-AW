@@ -202,15 +202,13 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
             } else {
                 (Color32::from_rgb(160, 56, 52), Color32::from_rgb(109, 42, 42))
             };
-            // Animate the paint while the rows and their click targets stay in place.
+            let offset = vec2(-96.0 * (1.0 - nav_progress), 0.0);
             let nav_rect = ui.clip_rect();
-            theme::gradient(ui.painter(), nav_rect, [top, nav_bg, bottom, bottom]);
-            if nav_progress < 1.0 {
-                let reveal = Rect::from_min_max(pos2(nav_rect.left() + nav_rect.width() * nav_progress, nav_rect.top()), nav_rect.max);
-                ui.painter().rect_filled(reveal, 0.0, t.window.gamma_multiply(0.24 * (1.0 - nav_progress)));
-            }
-            ui.scope(|ui| {
-                ui.multiply_opacity(0.80 + 0.20 * nav_progress);
+            let sliding_rect = nav_rect.translate(offset);
+            theme::gradient(ui.painter(), sliding_rect, [top, nav_bg, bottom, bottom]);
+            let content_rect = ui.max_rect().translate(offset);
+            ui.scope_builder(egui::UiBuilder::new().max_rect(content_rect), |ui| {
+                ui.set_clip_rect(nav_rect.intersect(sliding_rect));
                 ui.spacing_mut().item_spacing.y = 2.0;
                 if nav_item(ui, Icon::Back, lang.tr("Back"), false, nav_text, nav_sel).clicked() {
                     out.close = true;
