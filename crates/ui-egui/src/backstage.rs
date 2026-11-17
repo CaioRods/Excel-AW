@@ -840,6 +840,17 @@ pub fn export_as(app: &mut SheetApp, fmt: &str) -> bool {
 
 /// Excel's File › Account: product information and the About window.
 fn account(app: &mut SheetApp, ui: &mut Ui) {
+    let mut name = app.ui.profile.name.clone();
+    let pt = app.ui.language == crate::i18n::Language::PtBr;
+    let slot = crate::profile::card(ui, &mut app.ui.profile, &mut name, pt, app.services.pick_picture.is_some(), true);
+    if let Some(slot) = slot
+        && let Some(path) = app.services.pick_picture.as_ref().and_then(|pick| pick())
+        && let Err(error) = app.ui.profile.import(slot, &path, pt)
+    {
+        app.ui.profile.error = Some(error);
+    }
+    ui.add_space(16.0);
+
     let t = Tokens::get(ui.ctx());
     let lang = app.ui.language;
     section(ui, lang, "Product Information");

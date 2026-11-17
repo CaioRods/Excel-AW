@@ -78,6 +78,8 @@ pub use control::{ControlRequest, ControlResponse};
 
 mod app;
 mod clock;
+use aw_workspace::document_strip;
+pub use aw_workspace::profile;
 mod services;
 mod state;
 
@@ -104,6 +106,7 @@ fn parse_resize_direction(value: &str) -> Option<egui::ResizeDirection> {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct UiState {
+    pub profile: profile::Profile,
     /// The manual preference, retained when following the system appearance.
     pub dark: bool,
     pub system_theme: bool,
@@ -172,6 +175,7 @@ impl UiState {
 impl Default for UiState {
     fn default() -> Self {
         UiState {
+            profile: profile::Profile::default(),
             dark: false,
             system_theme: false,
             ribbon_tab: "Home".into(),

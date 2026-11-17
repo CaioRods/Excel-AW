@@ -35,7 +35,13 @@ pub(super) fn update_cursor(app: &mut SheetApp, ui: &egui::Ui, resp: &egui::Resp
         && pointer.primary_down()
         && let Some(cursor) = drag_cursor(&app.grid.drag, geo.rtl)
     {
-        ctx.set_cursor_icon(cursor);
+        if cursor == CursorIcon::Cell {
+            if let Some(at) = pointer.hover_pos() {
+                paint_cell_cursor(ctx, at);
+            }
+        } else {
+            ctx.set_cursor_icon(cursor);
+        }
         return;
     }
     if !resp.hovered() {
@@ -103,7 +109,9 @@ fn hover_cursor(app: &SheetApp, ctx: &egui::Context, resp: &egui::Response, poin
     } else if in_cells && app.editor.is_none() && on_cur_border {
         ctx.set_cursor_icon(CursorIcon::Move);
     } else if in_cells {
-        ctx.set_cursor_icon(CursorIcon::Cell);
+        if let Some(at) = pointer.hover_pos() {
+            paint_cell_cursor(ctx, at);
+        }
     } else if in_col_header {
         let col = geo.col_at(sh, p.x);
         let selected = sel.ranges.len() == 1 && sel.current().is_full_cols() && sel.current().contains(CellRef::new(0, col));
@@ -148,5 +156,44 @@ fn paint_split_cursor(ctx: &egui::Context, at: Pos2, cols: bool) {
         for dir in [-1.0, 1.0] {
             p.add(egui::Shape::convex_polygon(arrow(dir), color, Stroke::new(width - 1.0, color)));
         }
+    }
+}
+
+/// A thick white selection cross, independent of the OS theme's `Cell` cursor mapping.
+fn paint_cell_cursor(ctx: &egui::Context, at: Pos2) {
+    ctx.set_cursor_icon(CursorIcon::None);
+    let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::unique("aw_cell_cursor")));
+    let points: Vec<_> = [
+        (-3.0, -9.0),
+        (3.0, -9.0),
+        (3.0, -3.0),
+        (9.0, -3.0),
+        (9.0, 3.0),
+        (3.0, 3.0),
+        (3.0, 9.0),
+        (-3.0, 9.0),
+        (-3.0, 3.0),
+        (-9.0, 3.0),
+        (-9.0, -3.0),
+        (-3.0, -3.0),
+    ]
+    .into_iter()
+    .map(|(x, y)| pos2(at.x + x, at.y + y))
+    .collect();
+    // Fill as two rectangles; the concave outline is stroked separately.
+    painter.rect_filled(Rect::from_center_size(at, vec2(6.0, 18.0)), 0.0, Color32::WHITE);
+    painter.rect_filled(Rect::from_center_size(at, vec2(18.0, 6.0)), 0.0, Color32::WHITE);
+    painter.add(egui::Shape::closed_line(points, Stroke::new(1.0, Color32::BLACK)));
+}
+
+#[cfg(test)]
+mod aw_cursor_tests {
+    #[test]
+    fn selection_cross_hides_os_cursor_and_draws_white_cross_with_outline() {
+        let ctx = egui::Context::default();
+        let output = ctx.run_ui(egui::RawInput::default(), |ui| super::paint_cell_cursor(ui.ctx(), egui::pos2(100.0, 100.0)));
+        assert_eq!(output.platform_output.cursor_icon, egui::CursorIcon::None);
+        assert!(output.shapes.iter().any(|s| matches!(&s.shape, egui::Shape::Path(path) if path.closed && path.points.len() == 12)));
+        output.drop_without_applying_deltas();
     }
 }

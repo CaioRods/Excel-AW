@@ -17,9 +17,9 @@ mod graphics;
 mod logging;
 #[cfg(target_os = "macos")]
 mod native_menu;
-mod print;
 #[cfg(windows)]
 mod open_requests;
+mod print;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -144,6 +144,9 @@ fn load_prefs(app: &mut SheetApp) {
 fn save_prefs(app: &SheetApp) {
     if !prefs_enabled() {
         return;
+    }
+    if let Err(error) = app.ui.profile.flush_shared() {
+        log::warn!("Cannot save AW profile: {error}");
     }
     let Some(dir) = config_dir() else { return };
     let _ = std::fs::create_dir_all(&dir);
@@ -353,6 +356,9 @@ fn main() -> eframe::Result<()> {
     app.start_update_check();
     let control_port = control_port;
     load_prefs(&mut app);
+    if prefs_enabled() {
+        app.ui.profile.enable_sharing();
+    }
     // Stamp the startup workbook's author from the persisted user name.
     if app.session.documents().is_empty() {
         app.session.new_workbook();
