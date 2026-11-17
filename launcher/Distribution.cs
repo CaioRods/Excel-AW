@@ -18,7 +18,7 @@ internal static class Distribution
 {
     internal static readonly string[] Names = { "Excel AW", "Word AW" };
     private static readonly string[] Slugs = { "Excel-AW", "Word-AW" };
-    private static readonly Version[] Bundled = { new Version(1, 41, 5), new Version(0, 18, 1) };
+    private static readonly Version[] Bundled = { new Version(1, 41, 6), new Version(0, 18, 2) };
 
     internal static string LocalPath(int app)
     {
