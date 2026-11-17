@@ -17,7 +17,13 @@ fn choose(h: &mut egui_kittest::Harness<'static, SheetApp>, label: &str) {
         h.get_by_label("File").click();
         h.run_steps(3);
     }
-    click(h, label);
+    if label == "Account" {
+        // The avatar in the document header also opens Account; this test exercises the File sidebar.
+        h.get_all_by_role_and_label(egui::accesskit::Role::Button, label).find(|node| node.rect().left() < 200.0).unwrap().click();
+        h.run_steps(3);
+    } else {
+        click(h, label);
+    }
 }
 
 fn click(h: &mut egui_kittest::Harness<'static, SheetApp>, label: &str) {
