@@ -4,7 +4,7 @@
 
 # Excel AW
 
-**Excel AW** é um sistema de planilhas para uso interno na Alimentos Wilson. Caio Rodrigues criou a edição para facilitar tarefas do dia a dia da empresa, como a conferência de mercadorias recebidas. O projeto tem como base o [GridCraft](https://github.com/storytold/gridcraft).
+**Excel AW** é um sistema de planilhas para uso interno na Alimentos Wilson. Caio Rodrigues criou a edição para facilitar tarefas do dia a dia da empresa, como a conferência de mercadorias recebidas.
 
 O aplicativo abre e salva planilhas `.xlsx` e oferece fórmulas em português, como `SOMA` e `SE`. O idioma das fórmulas pode ser escolhido separadamente do idioma da interface. O modelo **Conferência de recebimento**, no menu **Arquivo → Novo**, ajuda a registrar notas fiscais, lotes e quantidades. A planilha calcula a diferença entre o pedido e o recebimento e sinaliza os itens que precisam de conferência.
 
