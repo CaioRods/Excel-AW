@@ -22,7 +22,7 @@ jobs:
             package: gridcraft
           - app: Word
             repository: CaioRods/Word-AW
-            revision: f1b4ccee8fc03bcbe5755f219c8de49f21c2a1d6
+            revision: b6d353903e3839a3260ce96df86114631fc2d425
             package: wordcraft
     steps:
       - uses: actions/checkout@v4
