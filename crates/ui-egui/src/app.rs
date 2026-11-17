@@ -195,6 +195,8 @@ impl SheetApp {
     /// Lays out the whole window.
     pub fn ui(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
+        // Bitmap cursors are sticky: editing, menus and non-grid widgets must restore their own cursor.
+        ctx.set_cursor_image(None);
         if !self.fonts_ready || self.fonts_rebind {
             ctx.request_repaint();
             return;

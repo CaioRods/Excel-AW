@@ -20,6 +20,7 @@ pub const UPDATE_APP: craft_update::app::App = craft_update::app::App {
 
 pub mod backstage;
 mod border_preview;
+mod cell_cursor;
 mod cell_pictures;
 mod chartcache;
 pub mod chartview;

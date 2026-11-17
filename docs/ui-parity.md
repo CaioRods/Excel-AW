@@ -384,4 +384,4 @@ scrollbar bugs 2–4 · pixel/feel pass against observed Excel 7–12.
 
 Document tabs are always shown above the ribbon in the single-window AW mode. They can be reordered by dragging, created with +, and closed through the existing unsaved-changes confirmation. The account card and corner avatar use a local profile shared by Excel AW and Word AW under the same OS user (`%APPDATA%/AlimentosWilson/profile.json` on Windows). This shares the name, photo, banner and additional image; it does not synchronize documents or accounts over the internet.
 
-Excel draws a consistent white selection cross over cells, retaining specialized cursors for resizing, filling and objects.
+Excel uploads a cached white selection cross as a native OS cursor, retaining specialized cursors for resizing, filling and objects. This keeps pointer motion independent of document repainting; unsupported backends retain the standard Cell cursor.

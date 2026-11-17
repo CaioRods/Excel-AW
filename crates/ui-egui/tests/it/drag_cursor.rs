@@ -57,8 +57,11 @@ fn press(h: &mut Harness, pos: Pos2) {
 }
 
 fn assert_cursor(h: &Harness, expected: CursorIcon) {
-    // Cell selection is painted as the AW cross instead of relying on the platform's Cell shape.
-    let expected = if expected == CursorIcon::Cell { CursorIcon::None } else { expected };
+    if expected == CursorIcon::Cell {
+        assert!(h.output().platform_output.cursor_image.is_some(), "cell selection uses the native AW cross");
+    } else {
+        assert!(h.output().platform_output.cursor_image.is_none(), "specialized cursors clear the cell bitmap");
+    }
     assert_eq!(h.output().platform_output.cursor_icon, expected, "drag state: {:?}", h.state().grid.drag);
 }
 
