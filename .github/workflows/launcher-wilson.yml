@@ -27,6 +27,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          path: central
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
           repository: ${{ matrix.repository }}
           ref: ${{ matrix.revision }}
           path: app
@@ -65,9 +69,11 @@ jobs:
               throw 'A revisão do catálogo de idiomas diverge do Word AW.'
             }
           }
+          ../central/launcher/brand-msi.ps1 -Source . -App '${{ matrix.app }}'
           ./packaging/windows/package.ps1 -Arch x64
           $msi = @(Get-ChildItem dist/release -Filter '${{ matrix.package }}-*-windows-x64.msi')
           if ($msi.Count -ne 1) { throw 'Esperava exatamente um MSI x64.' }
+          ../central/launcher/test-msi.ps1 -Package $msi[0].FullName -Name '${{ matrix.app }} AW'
           Copy-Item $msi[0].FullName "$env:RUNNER_TEMP\${{ matrix.app }}-AW-x64.msi"
       - uses: actions/upload-artifact@v4
         with:
@@ -75,23 +81,43 @@ jobs:
           path: ${{ runner.temp }}/${{ matrix.app }}-AW-x64.msi
           if-no-files-found: error
 
-  bundle:
-    name: Central de Apps
-    needs: installers
+  central:
+    name: Compilar a central
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Compilar e testar inicialização
+        run: |
+          New-Item -ItemType Directory central | Out-Null
+          ./launcher/build.ps1 -Destination central
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Central-executavel
+          path: central/
+          if-no-files-found: error
+
+  bundle:
+    name: Montar o ZIP final
+    needs: [installers, central]
+    runs-on: windows-2022
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Central-executavel
+          path: pacote
       - uses: actions/download-artifact@v4
         with:
           pattern: '*-AW-x64'
           path: pacote/instaladores
           merge-multiple: true
-      - name: Compilar e montar pacote
+      - name: Verificar o conteúdo e montar pacote
         run: |
-          ./launcher/build.ps1 -Destination pacote
-          Compress-Archive -Path pacote -DestinationPath Alimentos-Wilson-Windows-x64.zip
+          foreach ($app in @('Excel','Word')) {
+            if (!(Test-Path "pacote/instaladores/$app-AW-x64.msi" -PathType Leaf)) { throw "MSI ausente: $app AW" }
+          }
+          Compress-Archive -Path pacote/* -DestinationPath Alimentos-Wilson-Windows-x64.zip
       - uses: actions/upload-artifact@v4
         with:
           name: Alimentos-Wilson-Windows-x64
