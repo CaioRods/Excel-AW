@@ -232,6 +232,7 @@ impl SheetApp {
             backstage::show(self, ui);
         } else {
             ribbon::show(self, ui);
+            tabs::workbook_tabs(self, ui);
             widgets::notice_bar(self, ui);
             // Python mode edits only in the formula bar: it shows while a Python edit is open,
             // also when the preference hides it.

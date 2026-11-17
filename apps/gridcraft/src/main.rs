@@ -18,32 +18,45 @@ mod logging;
 #[cfg(target_os = "macos")]
 mod native_menu;
 mod print;
+#[cfg(windows)]
+mod open_requests;
 
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use gridcraft_engine::Session;
-use gridcraft_ui_egui::doc_windows::DocWindows;
 use gridcraft_ui_egui::{Services, SheetApp};
 use serde_json::json;
 
-/// The app, its native window per workbook window, and (macOS) the menu bar and Finder events.
-struct App(SheetApp, DocWindows, #[cfg(target_os = "macos")] Option<native_menu::NativeMenu>, #[cfg(target_os = "macos")] fmv_macos_events::Inbox);
+/// The workbook tabs, plus the desktop's external file-open requests.
+struct App(
+    SheetApp,
+    #[cfg(target_os = "macos")] Option<native_menu::NativeMenu>,
+    #[cfg(target_os = "macos")] fmv_macos_events::Inbox,
+    #[cfg(windows)] Option<open_requests::OpenRequests>,
+);
 
 impl eframe::App for App {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         #[cfg(target_os = "macos")]
         {
-            if self.2.is_none() && std::env::var_os("GRIDCRAFT_NO_NATIVE_MENU").is_none() {
-                self.2 = Some(native_menu::NativeMenu::install(ctx));
+            if self.1.is_none() && std::env::var_os("GRIDCRAFT_NO_NATIVE_MENU").is_none() {
+                self.1 = Some(native_menu::NativeMenu::install(ctx));
             }
-            if let Some(m) = &mut self.2 {
-                m.poll(&mut self.0, ctx, self.1.focused_viewport());
+            if let Some(m) = &mut self.1 {
+                m.poll(&mut self.0, ctx, egui::ViewportId::ROOT);
             }
-            apple_events::poll(&self.3, &mut self.0, ctx);
+            apple_events::poll(&self.2, &mut self.0, ctx);
+        }
+        #[cfg(windows)]
+        if let Some(requests) = &self.1 {
+            requests.poll(ctx, |path| {
+                if let Some(path) = path.to_str() {
+                    self.0.open_path(path);
+                }
+            });
         }
         self.0.logic(ctx);
-        self.1.logic(&mut self.0, ctx);
         if ctx.input(|input| input.viewport().close_requested()) && self.0.printing.busy() {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
         }
@@ -59,7 +72,7 @@ impl eframe::App for App {
         }
     }
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        self.1.show(&mut self.0, ui);
+        self.0.ui(ui);
     }
     fn on_exit(&mut self) {
         print::finish_pending_jobs();
@@ -301,6 +314,20 @@ fn main() -> eframe::Result<()> {
         }
         i += 1;
     }
+    #[cfg(windows)]
+    let requests = if prefs_enabled() && control_port.is_none() && sample.is_none() {
+        match open_requests::OpenRequests::start("Excel AW", &files.iter().map(std::path::PathBuf::from).collect::<Vec<_>>()) {
+            Ok(Some(requests)) => Some(requests),
+            Ok(None) => return Ok(()),
+            Err(error) => {
+                log::warn!("could not reuse the Excel AW window: {error}");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     // The log file lives in the settings folder, next to the preferences; opened after the
     // arguments, so `--version` leaves no file behind. Records logged until now are written to it
     // first. Runs without preferences (agents' test runs) log to standard error only, so they
@@ -353,7 +380,6 @@ fn main() -> eframe::Result<()> {
     if let Some(i) = icon() {
         viewport = viewport.with_icon(i);
     }
-    let window_builder = viewport.clone();
     let options = eframe::NativeOptions { viewport, ..Default::default() };
     #[cfg(unix)]
     let mut options = options;
@@ -390,6 +416,8 @@ fn main() -> eframe::Result<()> {
     let apple_events = &apple_events;
     // The app waits here until a start gets as far as creating it; a start that fails before
     // (no graphics adapter, device or surface) leaves it here for the next attempt.
+    #[cfg(windows)]
+    let requests = std::cell::Cell::new(requests);
     let pending = std::cell::Cell::new(Some(app));
     let run = |options: eframe::NativeOptions| {
         eframe::run_native(
@@ -406,14 +434,14 @@ fn main() -> eframe::Result<()> {
                         Err(e) => log::error!("control channel on port {port}: {e}"),
                     }
                 }
-                let windows = DocWindows::new(&mut app, window_builder.clone(), DocWindows::platform_quits_with_last_window());
                 Ok(Box::new(App(
                     app,
-                    windows,
                     #[cfg(target_os = "macos")]
                     None,
                     #[cfg(target_os = "macos")]
                     apple_events.connect(&cc.egui_ctx),
+                    #[cfg(windows)]
+                    requests.take(),
                 )))
             }),
         )

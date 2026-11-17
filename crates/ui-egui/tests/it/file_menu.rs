@@ -409,6 +409,21 @@ fn new_workbook_keeps_the_typed_cell_in_the_first_and_switch_windows_brings_it_b
 }
 
 #[test]
+fn workbook_tabs_switch_between_open_workbooks() {
+    let mut h = harness(Services::default());
+    let first = typing_in_book1_then_new(&mut h);
+    let second = h.state().session.doc().unwrap().uid;
+    h.get_by_label("● Book1").click();
+    h.run_steps(3);
+    assert_eq!(h.state().session.doc().unwrap().uid, first);
+    assert_eq!(a1(&h, 0), Value::text("hello"));
+    h.get_by_label("Book2").click();
+    h.run_steps(3);
+    assert_eq!(h.state().session.doc().unwrap().uid, second);
+    assert_eq!(a1(&h, 1), Value::Empty);
+}
+
+#[test]
 fn a_draft_its_workbook_refuses_stops_the_switch_and_stays_open() {
     let mut h = harness(Services::default());
     let book1 = typing_in_book1_then_new(&mut h);
