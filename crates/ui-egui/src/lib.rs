@@ -6,15 +6,15 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 #![forbid(unsafe_code)]
 
-/// GridCraft as craft-update knows it, with its 128 px icon and accent colour: the update
+/// Excel AW as craft-update knows it, with its icon and accent colour: the update
 /// prompt shows both, and an AppImage's menu entry gets the icon.
 #[cfg(not(target_arch = "wasm32"))]
 pub const UPDATE_APP: craft_update::app::App = craft_update::app::App {
-    icon_png: Some(include_bytes!("../../../assets/app-icon/hicolor/128x128/apps/ai.storyteller.gridcraft.png")),
+    icon_png: Some(include_bytes!("../../../assets/app-icon/excel-aw.png")),
     name: "Excel AW",
     tagline: "Planilhas e dados",
     repo: "CaioRods/Excel-AW",
-    accent: Some([0x9b, 0x35, 0x46]),
+    accent: Some([0xa1, 0x3d, 0x3a]),
     ..craft_update::suite::GRIDCRAFT
 };
 
