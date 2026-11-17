@@ -18,7 +18,7 @@ jobs:
         include:
           - app: Excel
             repository: CaioRods/Excel-AW
-            revision: c20df8616d2f1a0e44ea37dbea015e0d084e5dcf
+            revision: a0b7b98110508b2876c8ab719212dd7571efc250
             package: gridcraft
           - app: Word
             repository: CaioRods/Word-AW
