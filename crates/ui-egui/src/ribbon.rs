@@ -321,3 +321,5 @@ mod tooltip_tests {
         assert!(mac_only.is_empty(), "Command-key glyph in ribbon text: {mac_only:?}");
     }
 }
+
+pub(crate) use title_bar::account_button;

@@ -150,15 +150,8 @@ pub fn title_bar(app: &mut SheetApp, ui: &mut Ui) {
                 if __k.clicked() {
                     app.open_dialog("comments", json!({}));
                 }
-                let (rect, response) = ui.allocate_exact_size(vec2(28.0, 28.0), Sense::click());
-                response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, app.ui.language.tr("Account")));
-                if !app.ui.profile.avatar(ui, rect) {
-                    ui.painter().circle_filled(rect.center(), 13.0, t.accent);
-                    let initials: String = app.ui.profile.name.split_whitespace().take(2).filter_map(|p| p.chars().next()).collect();
-                    ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, initials, theme::ui_bold(11.0), Color32::WHITE);
-                }
-                if response.on_hover_text(app.ui.language.tr("Account")).clicked() {
-                    app.run_or_alert("ui.backstage", json!({"page": "account"}));
+                if app.native_windows {
+                    account_button(app, ui);
                 }
                 // Quick light/dark switch (#194); right-click offers System as well. The same
                 // choice lives in File › Display theme and the View tab.
@@ -334,6 +327,21 @@ pub fn window_frame(app: &mut SheetApp, ctx: &egui::Context) {
         app.run_or_alert("ui.window.beginResize", json!({"direction": direction}));
     }
     app.flush_viewport_commands(ctx);
+}
+
+/// Shared account avatar in the top document strip.
+pub(crate) fn account_button(app: &mut SheetApp, ui: &mut Ui) {
+    let t = Tokens::get(ui.ctx());
+    let (rect, response) = ui.allocate_exact_size(vec2(28.0, 28.0), Sense::click());
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, app.ui.language.tr("Account")));
+    if !app.ui.profile.avatar(ui, rect) {
+        ui.painter().circle_filled(rect.center(), 13.0, t.accent);
+        let initials: String = app.ui.profile.name.split_whitespace().take(2).filter_map(|p| p.chars().next()).collect();
+        ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, initials, theme::ui_bold(11.0), Color32::WHITE);
+    }
+    if response.on_hover_text(app.ui.language.tr("Account")).clicked() {
+        app.run_or_alert("ui.backstage", json!({"page": "account"}));
+    }
 }
 
 #[cfg(test)]

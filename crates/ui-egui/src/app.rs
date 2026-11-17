@@ -229,13 +229,13 @@ impl SheetApp {
             self.ribbon_keys(&ctx);
         }
         if self.chrome.title_bar {
+            tabs::workbook_tabs(self, ui);
             ribbon::title_bar(self, ui);
         }
         if self.backstage.is_some() {
             // File tab: the Backstage view replaces everything below the title bar.
             backstage::show(self, ui);
         } else {
-            tabs::workbook_tabs(self, ui);
             ribbon::show(self, ui);
             widgets::notice_bar(self, ui);
             // Python mode edits only in the formula bar: it shows while a Python edit is open,
