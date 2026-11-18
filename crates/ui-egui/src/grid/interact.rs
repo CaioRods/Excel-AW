@@ -4,7 +4,7 @@ use super::editor::validation_arrow;
 use super::geo::Geo;
 use super::keyboard::keyboard;
 use super::menus::set_fill_tag;
-use super::selection::select_ranges;
+use super::selection::{apply_multi_selection, select_ranges};
 use super::tables::{is_filter_button, table_headings};
 use super::{
     CellRef, Color32, CursorIcon, Drag, EditState, MAX_COLS, MAX_ROWS, Painter, Pos2, RangeRef, Rect, Sheet, SheetApp, Stroke, Tokens, Workbook,
@@ -486,7 +486,7 @@ fn handle_press(app: &mut SheetApp, input: &InteractionInput<'_>) {
         app.grid.drag = Drag::Fill { target: None, menu: resp.drag_started_by(egui::PointerButton::Secondary) };
         return;
     }
-    if on_cur_border(p) && resp.drag_started() {
+    if on_cur_border(p) && resp.drag_started() && !mods.command && !mods.ctrl {
         app.grid.drag = Drag::Move { grab: c, to: None };
         return;
     }
@@ -495,17 +495,18 @@ fn handle_press(app: &mut SheetApp, input: &InteractionInput<'_>) {
     // and a link is not followed nor a checkbox toggled.
     let ref_box_picks = app.dialog.as_ref().is_some_and(|d| d.ref_box_picks());
     let acts = primary_clicked && !ref_box_picks;
-    if !ref_box_picks && handle_cell_double_click(app, input, c, now) {
+    if !ref_box_picks && !mods.command && !mods.ctrl && handle_cell_double_click(app, input, c, now) {
         return;
     }
-    app.grid.last_click = Some((c, now));
+    app.grid.last_click = if mods.command || mods.ctrl { None } else { Some((c, now)) };
+    let mut additive = None;
     if mods.shift {
         note_selecting_press(app);
         let _ = app.session.run("selection.set", json!({"range": RangeRef::new(sel.anchor, c).a1(), "active": sel.active.a1()}));
         if let Some(d) = app.session.active_mut() {
             d.selection.anchor = sel.anchor;
         }
-    } else if mods.command {
+    } else if mods.command || mods.ctrl {
         // Ctrl+click (without Alt) on a hyperlink's text follows it instead of adding the cell to the selection.
         if let Some(h) = sh.hyperlinks.get(&c).cloned()
             && acts
@@ -515,7 +516,10 @@ fn handle_press(app: &mut SheetApp, input: &InteractionInput<'_>) {
             follow_link(app, &h.target);
         } else {
             note_selecting_press(app);
-            select_ranges(app, RangeRef::cell(c), true, c);
+            let range = sh.merge_at(c).unwrap_or_else(|| RangeRef::cell(c));
+            let remove = sel.contains(c);
+            apply_multi_selection(app, sel, range, remove, c);
+            additive = Some(Drag::AddSelect { base: sel.clone(), anchor: c, remove });
         }
     } else {
         note_selecting_press(app);
@@ -534,7 +538,7 @@ fn handle_press(app: &mut SheetApp, input: &InteractionInput<'_>) {
             }
         }
     }
-    app.grid.drag = Drag::Select;
+    app.grid.drag = additive.unwrap_or(Drag::Select);
     app.grid.drag_select = true;
     if resp.drag_started()
         && let Some(p) = pos
@@ -681,7 +685,7 @@ fn handle_dragging(app: &mut SheetApp, input: &InteractionInput<'_>) {
             geo.col_at(sh, p.x.clamp(geo.cells.left() + 1.0, geo.cells.right() - 1.0)),
         );
         match app.grid.drag.clone() {
-            Drag::Select => {
+            Drag::Select | Drag::AddSelect { .. } => {
                 select_to_pointer(app, geo, sh, wb, p);
                 scroll_by(app, auto);
             }
@@ -759,6 +763,12 @@ fn handle_release(app: &mut SheetApp, input: &InteractionInput<'_>) {
                     && let Some(p) = pos
                 {
                     select_to_pointer(app, geo, sh, wb, p);
+                }
+                format_painter_apply(app);
+            }
+            Drag::AddSelect { base, anchor, remove } => {
+                if let Some(p) = pos {
+                    ctrl_select_to_pointer(app, geo, sh, p, &base, anchor, remove);
                 }
                 format_painter_apply(app);
             }
@@ -938,6 +948,10 @@ fn select_to_pointer(app: &mut SheetApp, geo: &Geo, sh: &Sheet, wb: &Workbook, p
         geo.row_at(sh, p.y.clamp(geo.cells.top() + 1.0, geo.cells.bottom() - 1.0)),
         geo.col_at(sh, p.x.clamp(geo.cells.left() + 1.0, geo.cells.right() - 1.0)),
     );
+    if let Drag::AddSelect { base, anchor, remove } = app.grid.drag.clone() {
+        ctrl_select_to_pointer(app, geo, sh, p, &base, anchor, remove);
+        return;
+    }
     if let Some(d) = app.dialog.as_mut().filter(|d| d.picks_references()) {
         d.pick_reference(cell, &sh.name, true);
     } else if let Some(ed) = app.editor.as_mut()
@@ -963,6 +977,15 @@ fn select_to_pointer(app: &mut SheetApp, geo: &Geo, sh: &Sheet, wb: &Workbook, p
             d.selection.anchor = anchor;
         }
     }
+}
+
+fn ctrl_select_to_pointer(app: &mut SheetApp, geo: &Geo, sh: &Sheet, p: Pos2, base: &gridcraft_engine::Selection, anchor: CellRef, remove: bool) {
+    let cell = CellRef::new(
+        geo.row_at(sh, p.y.clamp(geo.cells.top() + 1.0, geo.cells.bottom() - 1.0)),
+        geo.col_at(sh, p.x.clamp(geo.cells.left() + 1.0, geo.cells.right() - 1.0)),
+    );
+    let range = RangeRef::new(anchor, cell);
+    apply_multi_selection(app, base, range, remove, anchor);
 }
 
 /// A drag size in points: NaN or negative becomes 0 (a hidden line).

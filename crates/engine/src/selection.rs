@@ -4,6 +4,8 @@ use gridcraft_core::{CellRef, MAX_COLS, MAX_ROWS, RangeRef};
 use gridcraft_model::Sheet;
 use serde::{Deserialize, Serialize};
 
+mod difference;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Selection {
     /// The active (white) cell.
@@ -27,6 +29,16 @@ impl Selection {
     pub fn range(r: RangeRef) -> Selection {
         Selection { active: r.start, anchor: r.start, ranges: vec![r] }
     }
+    /// Removes a rectangle from every selected area without enumerating its cells.
+    /// The active cell remains selected when the rectangle would remove everything.
+    pub fn without_range(&self, cut: RangeRef) -> Vec<RangeRef> {
+        let mut result = difference::subtract(&self.ranges, cut);
+        if result.is_empty() {
+            result.push(RangeRef::cell(self.active));
+        }
+        result
+    }
+
     /// The current (last) area.
     pub fn current(&self) -> RangeRef {
         self.ranges.last().copied().unwrap_or(RangeRef::cell(self.active))
@@ -420,5 +432,23 @@ mod tests {
         assert_eq!(sel.active.a1(), "B1");
         sel.cycle(true, true);
         assert_eq!(sel.active.a1(), "A2");
+    }
+    #[test]
+    fn subtracting_selection_removes_cells_inside_blocks_and_keeps_other_areas() {
+        let parse = |text| RangeRef::parse(text).unwrap();
+        let sel = Selection { ranges: vec![parse("A1:C3"), parse("F5:G6")], ..Selection::default() };
+        for cut in ["B2", "B1:B3", "B2:D4", "A1:C3"] {
+            let cut = parse(cut);
+            let result = sel.without_range(cut);
+            for row in 0..8 {
+                for col in 0..8 {
+                    let cell = CellRef::new(row, col);
+                    assert_eq!(result.iter().any(|area| area.contains(cell)), sel.contains(cell) && !cut.contains(cell), "{cut:?} {cell:?}");
+                }
+            }
+        }
+        assert_eq!(Selection::at(CellRef::default()).without_range(parse("A1")), vec![parse("A1")]);
+        let full = Selection::range(RangeRef::cols(0, 2));
+        assert_eq!(full.without_range(RangeRef::cols(1, 1)), vec![RangeRef::cols(0, 0), RangeRef::cols(2, 2)]);
     }
 }

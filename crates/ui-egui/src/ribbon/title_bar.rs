@@ -123,7 +123,7 @@ pub fn title_bar(app: &mut SheetApp, ui: &mut Ui) {
             });
             let left_end = ui.min_rect().right();
             let right = ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if app.window_controls {
+                if app.window_controls && app.native_windows {
                     ui.add_space(3.0 * CONTROL_W);
                 }
                 ui.add_space(8.0);
@@ -217,7 +217,7 @@ fn paint_title(ui: &Ui, center: egui::Pos2, title: &str, dirty: bool, max_w: f32
 
 /// Width of one window-control button on the title bar.
 pub const CONTROL_W: f32 = 46.0;
-const CONTROL_TITLE_H: f32 = 38.0;
+const CONTROL_TITLE_H: f32 = 32.0;
 const RESIZE_BAND: f32 = 5.0;
 
 /// Draw application controls and edge resizing for frameless windows.

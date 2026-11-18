@@ -18,8 +18,19 @@ pub(crate) fn workbook_tabs(app: &mut SheetApp, ui: &mut Ui) {
     let windows: Vec<_> = app.open_windows().into_iter().filter(|w| app.session.window(w.window).is_some_and(|state| !state.hidden)).collect();
     let entries: Vec<_> = windows.into_iter().map(|w| (w.window, w.label(), w.active)).collect();
     let t = Tokens::get(ui.ctx());
-    let style = crate::document_strip::Style { brand: "Excel AW", accent: t.accent, active: t.window, text: t.text, on_accent: t.on_accent };
+    let style = crate::document_strip::Style {
+        brand: "Excel AW",
+        accent: t.accent,
+        active: t.window,
+        text: t.text,
+        on_accent: t.on_accent,
+        trailing_width: if app.window_controls { 182.0 } else { 44.0 },
+        logo: crate::document_strip::logo(ui.ctx(), "Excel AW", include_bytes!("../../../assets/app-icon/excel-aw.png")),
+    };
     let action = crate::document_strip::show_with_style(ui, &entries, style, app.ui.language == crate::i18n::Language::PtBr, |ui| {
+        if app.window_controls {
+            ui.add_space(138.0);
+        }
         crate::ribbon::account_button(app, ui)
     });
     match action {

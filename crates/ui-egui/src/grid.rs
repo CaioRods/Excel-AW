@@ -101,6 +101,12 @@ pub enum Drag {
     #[default]
     None,
     Select,
+    /// Ctrl/Cmd gesture: subtract from or extend the snapshot taken at the press.
+    AddSelect {
+        base: gridcraft_engine::Selection,
+        anchor: CellRef,
+        remove: bool,
+    },
     Rows(u32),
     Cols(u32),
     /// Point mode over the row headers: the formula's reference runs from this row to the pointer.

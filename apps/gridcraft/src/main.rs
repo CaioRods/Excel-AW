@@ -370,9 +370,9 @@ fn main() -> eframe::Result<()> {
     for f in &files {
         app.open_path(f);
     }
-    // Linux/BSD: Excel's layout — no window-manager title bar above ours; our title bar carries the
+    // Windows/Linux/BSD: one document header, without a second system caption; our header carries the
     // window controls. `GRIDCRAFT_SYSTEM_TITLEBAR=1` keeps the system frame.
-    app.window_controls = cfg!(not(any(target_os = "macos", target_os = "windows"))) && std::env::var_os("GRIDCRAFT_SYSTEM_TITLEBAR").is_none();
+    app.window_controls = cfg!(not(target_os = "macos")) && std::env::var_os("GRIDCRAFT_SYSTEM_TITLEBAR").is_none();
     let mut viewport = egui::ViewportBuilder::default()
         .with_title("Excel AW")
         .with_inner_size([1440.0, 900.0])

@@ -176,29 +176,31 @@ pub(crate) fn paint_selection(input: SelectionPaintInput<'_>) {
     }
 }
 
-/// The areas after a click: with `add` (Ctrl) the clicked area is added, or removed when it is already
-/// selected (unless it is the only one, so the selection never ends up empty).
-fn toggled_ranges(mut ranges: Vec<String>, clicked: String, add: bool) -> Vec<String> {
-    if !add {
-        return vec![clicked];
-    }
-    if ranges.len() > 1 && ranges.contains(&clicked) {
-        ranges.retain(|x| *x != clicked);
-    } else if !ranges.contains(&clicked) {
-        ranges.push(clicked);
-    }
-    ranges
+/// Applies an additive pointer gesture from its original selection, so every drag frame
+/// removes the new rectangle rather than repeatedly toggling the previous preview.
+pub(super) fn apply_multi_selection(app: &mut SheetApp, base: &gridcraft_engine::Selection, range: RangeRef, remove: bool, active: CellRef) {
+    let ranges = if remove {
+        base.without_range(range)
+    } else {
+        let mut ranges = base.ranges.clone();
+        if !ranges.contains(&range) {
+            ranges.push(range);
+        }
+        ranges
+    };
+    let active = if ranges.iter().any(|r| r.contains(active)) { active } else { ranges.last().map_or(base.active, |r| r.start) };
+    let ranges: Vec<_> = ranges.iter().map(|r| r.a1()).collect();
+    let _ = app.session.run("selection.set", json!({"range": ranges.join(","), "active": active.a1()}));
 }
 
-pub(super) fn select_ranges(app: &mut SheetApp, r: RangeRef, add: bool, active: CellRef) {
-    let current: Vec<String> =
-        if add { app.session.active().map(|d| d.selection.ranges.iter().map(|x| x.a1()).collect()).unwrap_or_default() } else { vec![] };
-    let clicked = r.a1();
-    let ranges = toggled_ranges(current, clicked.clone(), add);
-    // A removed area takes the active cell with it; `selection.set` then puts it at the start of the last area.
-    let params =
-        if ranges.contains(&clicked) { json!({"range": ranges.join(","), "active": active.a1()}) } else { json!({"range": ranges.join(",")}) };
-    let _ = app.session.run("selection.set", params);
+pub(super) fn select_ranges(app: &mut SheetApp, range: RangeRef, add: bool, active: CellRef) {
+    if add {
+        let base = app.session.active().map(|d| d.selection.clone()).unwrap_or_default();
+        let remove = base.ranges.iter().any(|r| r.intersection(&range) == Some(range));
+        apply_multi_selection(app, &base, range, remove, active);
+    } else {
+        let _ = app.session.run("selection.set", json!({"range": range.a1(), "active": active.a1()}));
+    }
 }
 
 #[cfg(test)]
@@ -286,12 +288,12 @@ mod pane_tests {
 
     #[test]
     fn ctrl_click_on_a_selected_header_deselects_it() {
-        let s = |v: &[&str]| v.iter().map(|x| x.to_string()).collect::<Vec<_>>();
-        assert_eq!(toggled_ranges(s(&["A:A", "C:C"]), "C:C".into(), true), s(&["A:A"]));
-        assert_eq!(toggled_ranges(s(&["A:A"]), "C:C".into(), true), s(&["A:A", "C:C"]));
-        assert_eq!(toggled_ranges(s(&["A:A"]), "A:A".into(), true), s(&["A:A"]));
-        assert_eq!(toggled_ranges(s(&["A1", "B2", "3:3"]), "B2".into(), true), s(&["A1", "3:3"]));
-        assert_eq!(toggled_ranges(s(&["A:A", "C:C"]), "C:C".into(), false), s(&["C:C"]));
+        let mut session = gridcraft_engine::Session::new();
+        session.new_workbook();
+        let mut app = SheetApp::new(session, crate::Services::default());
+        app.session.run("selection.set", json!({"range":"A:C"})).unwrap();
+        select_ranges(&mut app, RangeRef::cols(1, 1), true, CellRef::new(0, 1));
+        assert_eq!(app.session.active().unwrap().selection.a1(), "A:A,C:C");
     }
 
     #[test]

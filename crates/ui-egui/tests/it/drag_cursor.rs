@@ -337,3 +337,53 @@ fn draw_tools_keep_crosshair_and_pen_still_creates_ink() {
         }
     }
 }
+
+fn ctrl_pointer(h: &mut Harness, pos: Pos2, pressed: bool) {
+    let modifiers = Modifiers { ctrl: true, command: true, ..Modifiers::NONE };
+    h.input_mut().events.push(Event::ModifiersChanged(modifiers));
+    frame(h, Event::PointerMoved(pos));
+    frame(h, Event::PointerButton { pos, button: PointerButton::Primary, pressed, modifiers });
+}
+
+#[test]
+fn ctrl_click_removes_a_cell_inside_a_block_and_reselects_without_editing() {
+    let mut h = harness();
+    h.state_mut().session.execute("selection.set", json!({"range":"A1:C3,F5"})).unwrap();
+    h.run_steps(3);
+    let pos = cell(&h, "B2").center();
+    ctrl_pointer(&mut h, pos, true);
+    ctrl_pointer(&mut h, pos, false);
+    h.run_steps(3);
+    let selected = &h.state().session.active().unwrap().selection;
+    assert!(!selected.contains(CellRef::parse("B2").unwrap()));
+    for a1 in ["A1", "C3", "F5"] {
+        assert!(selected.contains(CellRef::parse(a1).unwrap()), "{a1}");
+    }
+    assert!(h.state().editor.is_none());
+    ctrl_pointer(&mut h, pos, true);
+    ctrl_pointer(&mut h, pos, false);
+    h.run_steps(3);
+    assert!(h.state().session.active().unwrap().selection.contains(CellRef::parse("B2").unwrap()));
+    assert!(h.state().editor.is_none(), "Ctrl clicks must not enter edit mode as a double-click");
+}
+
+#[test]
+fn ctrl_drag_subtracts_a_rectangle_without_losing_other_areas() {
+    let mut h = harness();
+    h.state_mut().session.execute("selection.set", json!({"range":"A1:D4,F7"})).unwrap();
+    h.run_steps(3);
+    let from = cell(&h, "B2").center();
+    let to = cell(&h, "C3").center();
+    ctrl_pointer(&mut h, from, true);
+    frame(&mut h, Event::PointerMoved(to));
+    h.run_steps(2);
+    ctrl_pointer(&mut h, to, false);
+    h.run_steps(3);
+    let selected = &h.state().session.active().unwrap().selection;
+    for a1 in ["B2", "C2", "B3", "C3"] {
+        assert!(!selected.contains(CellRef::parse(a1).unwrap()), "{a1} must be removed");
+    }
+    for a1 in ["A1", "D4", "F7"] {
+        assert!(selected.contains(CellRef::parse(a1).unwrap()), "{a1} must stay selected");
+    }
+}

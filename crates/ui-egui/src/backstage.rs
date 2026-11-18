@@ -27,7 +27,7 @@ use options::{options, platform};
 use print::print;
 
 /// Width of the navigation column.
-const NAV_W: f32 = 196.0;
+const NAV_W: f32 = aw_workspace::navigation::WIDTH;
 /// Width of the content column (pages are left-aligned like a document, not stretched).
 const CONTENT_W: f32 = 760.0;
 
@@ -190,22 +190,17 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
     let t = Tokens::get(&ctx);
     let lang = app.ui.language;
     let mut out = Outcome::default();
-    let (nav_bg, nav_text, nav_sel) =
+    let (_nav_bg, nav_text, nav_sel) =
         if t.dark { (t.accent_soft, t.text, Color32::from_white_alpha(30)) } else { (t.accent, Color32::WHITE, Color32::from_black_alpha(46)) };
     egui::Panel::left("backstage_nav")
         .exact_size(NAV_W)
         .resizable(false)
         .frame(egui::Frame::NONE.fill(t.window).inner_margin(egui::Margin { left: 0, right: 0, top: 10, bottom: 10 }))
         .show(ui, |ui| {
-            let (top, bottom) = if t.dark {
-                (Color32::from_rgb(91, 52, 48), Color32::from_rgb(46, 33, 34))
-            } else {
-                (Color32::from_rgb(160, 56, 52), Color32::from_rgb(109, 42, 42))
-            };
             let offset = vec2(-96.0 * (1.0 - nav_progress), 0.0);
             let nav_rect = ui.clip_rect();
             let sliding_rect = nav_rect.translate(offset);
-            theme::gradient(ui.painter(), sliding_rect, [top, nav_bg, bottom, bottom]);
+            aw_workspace::navigation::background(ui, sliding_rect, t.dark);
             let content_rect = ui.max_rect().translate(offset);
             ui.scope_builder(egui::UiBuilder::new().max_rect(content_rect), |ui| {
                 ui.set_clip_rect(nav_rect.intersect(sliding_rect));
@@ -312,27 +307,11 @@ fn save(app: &mut SheetApp, out: &mut Outcome) {
 // ---------------------------------------------------------------- navigation
 
 /// Allocates and paints one Backstage navigation row: selected or hover fill, icon, label and button semantics. Returns the row's click response.
-fn nav_item(ui: &mut Ui, icon: Icon, label: &str, selected: bool, text: Color32, sel: Color32) -> egui::Response {
-    let (rect, resp) = ui.allocate_exact_size(vec2(NAV_W, 38.0), Sense::click());
-    resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, selected, label));
-    let p = ui.painter();
-    let pill = rect.shrink2(vec2(10.0, 2.0));
-    if selected {
-        p.rect_filled(pill, 9.0, sel);
-        let marker = Rect::from_center_size(pos2(pill.left() + 6.0, pill.center().y), vec2(3.0, 14.0));
-        p.rect_filled(marker, 2.0, Color32::from_rgb(0xEE, 0xC6, 0x65));
-    } else if resp.hovered() || resp.has_focus() {
-        p.rect_filled(pill, 9.0, sel.gamma_multiply(0.65));
-    }
-    icons::paint(p, Rect::from_center_size(pos2(rect.left() + 30.0, rect.center().y), vec2(17.0, 17.0)), icon, text);
-    p.text(pos2(rect.left() + 50.0, rect.center().y), Align2::LEFT_CENTER, label, theme::ui_font(14.0), text);
-    resp
+fn nav_item(ui: &mut Ui, icon: Icon, label: &str, selected: bool, _text: Color32, _sel: Color32) -> egui::Response {
+    aw_workspace::navigation::row(ui, label, selected, true, false, |p, r, color| icons::paint(p, r, icon, color))
 }
-
-fn nav_separator(ui: &mut Ui, text: Color32) {
-    let (rect, _) = ui.allocate_exact_size(vec2(NAV_W, 17.0), Sense::hover());
-    let y = rect.center().y;
-    ui.painter().line_segment([pos2(rect.left() + 20.0, y), pos2(rect.right() - 20.0, y)], Stroke::new(1.0, text.gamma_multiply(0.35)));
+fn nav_separator(ui: &mut Ui, _text: Color32) {
+    aw_workspace::navigation::separator(ui);
 }
 
 // ---------------------------------------------------------------- shared pieces
