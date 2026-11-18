@@ -9,3 +9,5 @@ Excel e Word compartilham o componente de navegação: linhas de 38 pontos, barr
 As janelas de diálogo têm fundo opaco, para os textos da tela anterior não atravessarem o conteúdo. As marcas já existentes de cada app aparecem ao lado dos nomes nas abas e em Sobre; os créditos públicos continuam como @CaioRods.
 
 Ctrl/Cmd + clique retira células de dentro de blocos selecionados e preserva outras áreas. Ctrl/Cmd + arraste calcula a região removida a partir da seleção original, sem alternar repetidamente entre quadros. Uma célula ativa permanece quando toda a seleção seria removida.
+
+Em janelas menores, os comandos do menu podem rolar; Conta e Opções permanecem separados na base, sem sobreposição com os comandos.

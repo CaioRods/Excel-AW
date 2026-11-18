@@ -209,30 +209,32 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
                     out.close = true;
                 }
                 ui.add_space(10.0);
-                for page in [Page::Home, Page::New, Page::Open] {
-                    if nav_item(ui, page.icon(), lang.tr(page.label()), bs.page == page, nav_text, nav_sel).clicked() {
-                        out.page = Some(page);
+                aw_workspace::navigation::scroll_main(ui, "excel_aw_file_navigation", |ui| {
+                    for page in [Page::Home, Page::New, Page::Open] {
+                        if nav_item(ui, page.icon(), lang.tr(page.label()), bs.page == page, nav_text, nav_sel).clicked() {
+                            out.page = Some(page);
+                        }
                     }
-                }
-                nav_separator(ui, nav_text);
-                if nav_item(ui, Page::Info.icon(), lang.tr("Info"), bs.page == Page::Info, nav_text, nav_sel).clicked() {
-                    out.page = Some(Page::Info);
-                }
-                if nav_item(ui, Icon::Save, lang.tr("Save"), false, nav_text, nav_sel).clicked() {
-                    save(app, &mut out);
-                }
-                for page in [Page::SaveAs, Page::Print, Page::Export] {
-                    if nav_item(ui, page.icon(), lang.tr(page.label()), bs.page == page, nav_text, nav_sel).clicked() {
-                        out.page = Some(page);
+                    nav_separator(ui, nav_text);
+                    if nav_item(ui, Page::Info.icon(), lang.tr("Info"), bs.page == Page::Info, nav_text, nav_sel).clicked() {
+                        out.page = Some(Page::Info);
                     }
-                }
-                if nav_item(ui, Icon::Close, lang.tr("Close"), false, nav_text, nav_sel).clicked() {
-                    // A cell still being edited is part of the workbook; Close keeps the unsaved prompt.
-                    if app.commit_edit(0, 0, false, false) {
-                        app.run_or_alert("file.close", json!({}));
-                        out.close = true;
+                    if nav_item(ui, Icon::Save, lang.tr("Save"), false, nav_text, nav_sel).clicked() {
+                        save(app, &mut out);
                     }
-                }
+                    for page in [Page::SaveAs, Page::Print, Page::Export] {
+                        if nav_item(ui, page.icon(), lang.tr(page.label()), bs.page == page, nav_text, nav_sel).clicked() {
+                            out.page = Some(page);
+                        }
+                    }
+                    if nav_item(ui, Icon::Close, lang.tr("Close"), false, nav_text, nav_sel).clicked() {
+                        // A cell still being edited is part of the workbook; Close keeps the unsaved prompt.
+                        if app.commit_edit(0, 0, false, false) {
+                            app.run_or_alert("file.close", json!({}));
+                            out.close = true;
+                        }
+                    }
+                });
                 // Bottom up: Account sits just above Options, as in Excel.
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
                     for page in [Page::Options, Page::Account] {

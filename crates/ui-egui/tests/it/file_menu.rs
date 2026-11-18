@@ -736,3 +736,25 @@ fn control_requests_route_to_a_window_and_list_windows() {
     let r = call(&mut h, "engine.execute", serde_json::json!({"command": "cell.get", "params": {"cell": "A1"}, "window": 999}));
     assert_eq!(r["ok"], false, "{r}");
 }
+
+#[test]
+fn aw_sidebar_keeps_commands_clear_of_account_and_options_at_minimum_height() {
+    let mut h = harness(Services::default());
+    h.set_size(egui::vec2(1280.0, 420.0));
+    h.get_by_label("File").click();
+    h.run_steps(6);
+    let footer = |label| h.get_all_by_role_and_label(egui::accesskit::Role::Button, label).find(|node| node.rect().left() < 196.0).unwrap().rect();
+    let fixed = footer("Account").union(footer("Options"));
+    assert!(
+        h.output().shapes.iter().any(|shape| matches!(&shape.shape,egui::Shape::Text(text) if text.galley.job.text=="Home" && text.pos.x<196.0)),
+        "the main menu must be painted for this check"
+    );
+    for shape in &h.output().shapes {
+        if let egui::Shape::Text(text) = &shape.shape
+            && ["Home", "New", "Open", "Info", "Save", "Save As", "Print", "Export", "Close"].contains(&text.galley.job.text.as_str())
+        {
+            let painted = egui::Rect::from_min_size(text.pos, text.galley.size()).intersect(shape.clip_rect);
+            assert!(!painted.intersects(fixed), "{} must scroll instead of painting over Account/Options", text.galley.job.text);
+        }
+    }
+}
