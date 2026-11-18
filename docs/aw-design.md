@@ -11,3 +11,6 @@ As janelas de diálogo têm fundo opaco, para os textos da tela anterior não at
 Ctrl/Cmd + clique retira células de dentro de blocos selecionados e preserva outras áreas. Ctrl/Cmd + arraste calcula a região removida a partir da seleção original, sem alternar repetidamente entre quadros. Uma célula ativa permanece quando toda a seleção seria removida.
 
 Em janelas menores, os comandos do menu podem rolar; Conta e Opções permanecem separados na base, sem sobreposição com os comandos.
+
+AWcontrol hospeda cada editor nativo em uma página própria no Windows. A faixa interna é omitida somente nesse modo; novos arquivos e modelos são encaminhados à central autenticada local. Sem a central, os apps continuam independentes. O fechamento é solicitado ao editor, que mantém os avisos de salvar/cancelar.
+A desseleção preserva a célula ativa quando possível e contorna a união das áreas, inclusive buracos removidos, sem linhas internas entre os retângulos resultantes.

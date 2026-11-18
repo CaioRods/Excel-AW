@@ -29,6 +29,7 @@ impl SheetApp {
     /// Constructs a `SheetApp` with default UI, grid, printing, control and screenshot state and the caller's session and services.
     pub fn new(session: Session, services: Services) -> SheetApp {
         SheetApp {
+            external_workspace: false,
             session,
             ui: UiState::default(),
             chrome: Chrome::default(),

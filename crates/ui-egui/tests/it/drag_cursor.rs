@@ -387,3 +387,27 @@ fn ctrl_drag_subtracts_a_rectangle_without_losing_other_areas() {
         assert!(selected.contains(CellRef::parse(a1).unwrap()), "{a1} must stay selected");
     }
 }
+
+#[test]
+fn ctrl_deselection_keeps_the_active_cell_and_can_return_to_a_single_selection() {
+    let mut h = harness();
+    h.state_mut().session.execute("selection.set", json!({"range":"C5:K19","active":"C5"})).unwrap();
+    h.run_steps(3);
+    for a1 in ["D7", "C15", "G18"] {
+        let p = cell(&h, a1).center();
+        ctrl_pointer(&mut h, p, true);
+        ctrl_pointer(&mut h, p, false);
+        h.run_steps(3);
+        let sel = &h.state().session.active().unwrap().selection;
+        assert!(!sel.contains(CellRef::parse(a1).unwrap()));
+        assert_eq!(sel.active, CellRef::parse("C5").unwrap(), "removing another cell must not create an extra white active cell elsewhere");
+    }
+    let p = cell(&h, "M4").center();
+    h.input_mut().events.push(Event::ModifiersChanged(Modifiers::NONE));
+    button(&mut h, p, true);
+    button(&mut h, p, false);
+    h.run_steps(3);
+    let sel = &h.state().session.active().unwrap().selection;
+    assert!(sel.is_single_cell());
+    assert_eq!(sel.active, CellRef::parse("M4").unwrap());
+}

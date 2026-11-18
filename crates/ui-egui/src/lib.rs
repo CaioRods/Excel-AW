@@ -252,6 +252,8 @@ pub struct Perf {
 }
 
 pub struct SheetApp {
+    /// The enclosing AWcontrol owns document tabs and the native frame.
+    pub external_workspace: bool,
     pub session: Session,
     pub ui: UiState,
     /// The window chrome to draw (see [`Chrome`]).

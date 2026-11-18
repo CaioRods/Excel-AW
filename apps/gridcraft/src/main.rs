@@ -318,7 +318,16 @@ fn main() -> eframe::Result<()> {
         i += 1;
     }
     #[cfg(windows)]
-    let requests = if prefs_enabled() && control_port.is_none() && sample.is_none() {
+    if control_port.is_none()
+        && sample.is_none()
+        && !aw_workspace::control::embedded()
+        && !files.is_empty()
+        && aw_workspace::control::forward(0, &files.iter().map(std::path::PathBuf::from).collect::<Vec<_>>())
+    {
+        return Ok(());
+    }
+    #[cfg(windows)]
+    let requests = if !aw_workspace::control::embedded() && prefs_enabled() && control_port.is_none() && sample.is_none() {
         match open_requests::OpenRequests::start("Excel AW", &files.iter().map(std::path::PathBuf::from).collect::<Vec<_>>()) {
             Ok(Some(requests)) => Some(requests),
             Ok(None) => return Ok(()),
@@ -372,14 +381,19 @@ fn main() -> eframe::Result<()> {
     }
     // Windows/Linux/BSD: one document header, without a second system caption; our header carries the
     // window controls. `GRIDCRAFT_SYSTEM_TITLEBAR=1` keeps the system frame.
-    app.window_controls = cfg!(not(target_os = "macos")) && std::env::var_os("GRIDCRAFT_SYSTEM_TITLEBAR").is_none();
+    if let Some((command, params)) = aw_workspace::control::startup() {
+        app.run_or_alert(&command, params);
+    }
+    app.external_workspace = aw_workspace::control::embedded();
+    app.window_controls = !app.external_workspace && cfg!(not(target_os = "macos")) && std::env::var_os("GRIDCRAFT_SYSTEM_TITLEBAR").is_none();
     let mut viewport = egui::ViewportBuilder::default()
         .with_title("Excel AW")
         .with_inner_size([1440.0, 900.0])
         .with_min_inner_size([640.0, 420.0])
         .with_app_id("ai.storyteller.gridcraft")
         .with_drag_and_drop(true)
-        .with_decorations(!app.window_controls);
+        .with_decorations(!app.window_controls && !app.external_workspace)
+        .with_visible(!app.external_workspace);
     if cfg!(target_os = "macos") {
         viewport = viewport.with_fullsize_content_view(true).with_titlebar_shown(false).with_title_shown(false);
     }

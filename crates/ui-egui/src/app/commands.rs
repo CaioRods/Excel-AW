@@ -6,6 +6,15 @@ use super::{
 impl SheetApp {
     /// Runs an engine command (or a UI command) and handles UI requests it makes.
     pub fn run(&mut self, id: &str, params: Json) -> Result<Json, String> {
+        if self.external_workspace && id == "file.close" {
+            return self.run("ui.window.close", params);
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.external_workspace
+            && let Some(result) = aw_workspace::control::route(0, id, &params)
+        {
+            return result;
+        }
         let r = self.run_command(id, params);
         // This copy leaves the system clipboard alone: note what it holds, so Paste can tell
         // that GridCraft's copy is newer while that text is still there.

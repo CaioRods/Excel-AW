@@ -12,6 +12,9 @@ use crate::theme::{self, Tokens};
 
 /// One tab per visible workbook window, above the formula bar.
 pub(crate) fn workbook_tabs(app: &mut SheetApp, ui: &mut Ui) {
+    if app.external_workspace {
+        return;
+    }
     if app.native_windows {
         return;
     }
