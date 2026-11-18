@@ -14,3 +14,5 @@ Em janelas menores, os comandos do menu podem rolar; Conta e Opções permanecem
 
 AWcontrol hospeda cada editor nativo em uma página própria no Windows. A faixa interna é omitida somente nesse modo; novos arquivos e modelos são encaminhados à central autenticada local. Sem a central, os apps continuam independentes. O fechamento é solicitado ao editor, que mantém os avisos de salvar/cancelar.
 A desseleção preserva a célula ativa quando possível e contorna a união das áreas, inclusive buracos removidos, sem linhas internas entre os retângulos resultantes.
+
+O fechamento confirmado com Não salvar no modo hospedado descarta o documento antes de concluir o encerramento, sem reabrir a pergunta. Cancelar preserva os dados.

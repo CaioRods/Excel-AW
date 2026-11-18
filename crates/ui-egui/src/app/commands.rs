@@ -6,7 +6,8 @@ use super::{
 impl SheetApp {
     /// Runs an engine command (or a UI command) and handles UI requests it makes.
     pub fn run(&mut self, id: &str, params: Json) -> Result<Json, String> {
-        if self.external_workspace && id == "file.close" {
+        // A confirmed discard/save must reach the document close, not ask the window to close again.
+        if self.external_workspace && id == "file.close" && params.get("force").and_then(Json::as_bool) != Some(true) {
             return self.run("ui.window.close", params);
         }
         #[cfg(not(target_arch = "wasm32"))]

@@ -758,3 +758,33 @@ fn aw_sidebar_keeps_commands_clear_of_account_and_options_at_minimum_height() {
         }
     }
 }
+
+#[test]
+fn hosted_excel_dont_save_closes_the_dirty_document_after_cancel_preserves_it() {
+    let mut app = gridcraft_ui_egui::SheetApp::new(gridcraft_engine::Session::new(), Default::default());
+    app.session.new_workbook();
+    app.external_workspace = true;
+    app.ui.language = gridcraft_ui_egui::i18n::Language::En;
+    app.session.execute("cell.set", serde_json::json!({"cell":"A1","value":"unsaved"})).unwrap();
+    app.open_dialog("saveChanges", serde_json::json!({"title":"Book1","quit":true}));
+    let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1280.0, 800.0)).build_ui_state(
+        |ui, app: &mut gridcraft_ui_egui::SheetApp| {
+            let ctx = ui.ctx().clone();
+            app.logic(&ctx);
+            app.ui(ui);
+        },
+        app,
+    );
+    h.run_steps(6);
+    h.get_by_role_and_label(egui::accesskit::Role::Button, "Cancel").click();
+    h.run_steps(3);
+    assert!(h.state().session.active().unwrap().is_dirty(), "Cancel must retain unsaved work");
+    h.state_mut().open_dialog("saveChanges", serde_json::json!({"title":"Book1","quit":true}));
+    h.run_steps(3);
+    h.get_by_role_and_label(egui::accesskit::Role::Button, "Don't Save").click();
+    h.run_steps(4);
+    assert!(
+        h.state().allow_close && !h.state().session.documents().iter().any(|d| d.is_dirty()),
+        "Don't Save must discard unsaved changes and allow the native window to close, instead of entering the prompt again"
+    );
+}
