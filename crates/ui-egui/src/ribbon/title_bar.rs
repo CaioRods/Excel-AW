@@ -230,6 +230,7 @@ pub fn window_frame(app: &mut SheetApp, ctx: &egui::Context) {
         return;
     }
     let t = Tokens::get(ctx);
+    let on_tabs = app.chrome.title_bar && !app.native_windows;
     let screen = ctx.content_rect();
     let controls = egui::Rect::from_min_size(egui::pos2(screen.max.x - 3.0 * CONTROL_W, screen.min.y), egui::vec2(3.0 * CONTROL_W, CONTROL_TITLE_H));
     egui::Area::new(egui::Id::unique("gc_window_controls")).order(egui::Order::Foreground).fixed_pos(controls.min).show(ctx, |ui| {
@@ -250,6 +251,8 @@ pub fn window_frame(app: &mut SheetApp, ctx: &egui::Context) {
                         0.0,
                         if kind == "close" {
                             egui::Color32::from_rgb(0xC4, 0x2B, 0x1C)
+                        } else if on_tabs {
+                            egui::Color32::from_white_alpha(if resp.is_pointer_button_down_on() { 50 } else { 25 })
                         } else if resp.is_pointer_button_down_on() {
                             t.pressed
                         } else {
@@ -259,7 +262,7 @@ pub fn window_frame(app: &mut SheetApp, ctx: &egui::Context) {
                 }
                 resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, label));
                 let m = r.center();
-                let stroke = egui::Stroke::new(1.0, if kind == "close" && hot { egui::Color32::WHITE } else { t.text });
+                let stroke = egui::Stroke::new(1.0, if on_tabs || (kind == "close" && hot) { egui::Color32::WHITE } else { t.text });
                 match kind {
                     "minimize" => {
                         ui.painter().line_segment([egui::pos2(m.x - 5.0, m.y), egui::pos2(m.x + 5.0, m.y)], stroke);
@@ -413,5 +416,39 @@ mod title_bar_tests {
     fn no_room_draws_nothing_but_does_not_crash() {
         let (_, w, _) = layout_title("Book1.xlsx", true, 0.0);
         assert!(w <= 20.0, "a zero-width slot leaves at most the ellipsis: {w}");
+    }
+}
+
+#[cfg(test)]
+mod aw_surface_tests {
+    #[test]
+    fn header_window_controls_contrast_with_the_graphite_strip_in_light_theme() {
+        let ctx = egui::Context::default();
+        ctx.set_theme(egui::Theme::Light);
+        ctx.set_visuals(egui::Visuals::light());
+        let mut session = gridcraft_engine::Session::new();
+        session.new_workbook();
+        let mut app = crate::SheetApp::new(session, crate::Services::default());
+        app.window_controls = true;
+        ctx.all_styles_mut(|style| style.animation_time = 0.0);
+        let mut shapes = Vec::new();
+        for frame in 0..3 {
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    time: Some(f64::from(frame)),
+                    screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0))),
+                    ..Default::default()
+                },
+                |ui| super::window_frame(&mut app, ui.ctx()),
+            );
+            shapes = std::mem::take(&mut output.shapes);
+            output.drop_without_applying_deltas();
+        }
+        assert!(!crate::theme::Tokens::get(&ctx).dark);
+        assert!(
+            shapes.iter().filter(|shape| matches!(&shape.shape, egui::Shape::LineSegment {stroke,..} if stroke.color==egui::Color32::WHITE)).count()
+                >= 3,
+            "window controls must remain visible on the dark document strip"
+        );
     }
 }
