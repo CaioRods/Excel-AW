@@ -31,6 +31,7 @@ impl SheetApp {
         SheetApp {
             external_workspace: false,
             workspace_transfer: None,
+            workspace_transfer_at: 0.0,
             session,
             ui: UiState::default(),
             chrome: Chrome::default(),
@@ -110,6 +111,14 @@ impl SheetApp {
 
     /// Per-frame logic (control channel, screenshots). Call before `ui`.
     pub fn logic(&mut self, ctx: &egui::Context) {
+        if self.workspace_transfer.is_some() {
+            if now_ms() - self.workspace_transfer_at > 60000.0 {
+                self.workspace_transfer = None;
+            } else {
+                ctx.request_repaint_after(std::time::Duration::from_secs(1));
+            }
+        }
+
         self.ui.profile.sync();
         ctx.request_repaint_after(std::time::Duration::from_secs(1));
         self.ensure_text_width(ctx);

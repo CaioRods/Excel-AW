@@ -60,6 +60,7 @@ impl SheetApp {
                     aw_workspace::handoff::Checkpoint { version: 1, app: 0, source_pid: std::process::id(), document, revision, payload, ui };
                 aw_workspace::handoff::write(id, &checkpoint)?;
                 self.workspace_transfer = Some(id.into());
+                self.workspace_transfer_at = now_ms();
                 Ok(json!({"transfer":id,"pid":process_id,"count":self.session.documents().len()}))
             }
             #[cfg(not(target_arch = "wasm32"))]
@@ -81,6 +82,7 @@ impl SheetApp {
                     v.scroll = egui::vec2(x.max(0.0) as f32, y.max(0.0) as f32);
                 }
                 self.workspace_transfer = Some(id.into());
+                self.workspace_transfer_at = now_ms();
                 Ok(json!({"transfer":id,"sourcePid":checkpoint.source_pid}))
             }
             #[cfg(not(target_arch = "wasm32"))]
