@@ -26,13 +26,14 @@ pub mod sample;
 pub mod selection;
 pub mod tables;
 pub mod windows;
+pub mod workspace;
 
 use std::sync::Arc;
 
 use gridcraft_calc::Calc;
 use gridcraft_core::{CellRef, RangeRef};
 use gridcraft_model::Workbook;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value as Json;
 
 pub use cmd::{CommandInfo, CommandSpec, command_specs, find_command, register_test_command};
@@ -69,7 +70,7 @@ pub enum EngineError {
 
 pub type Result<T> = std::result::Result<T, EngineError>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HistoryEntry {
     pub label: String,
     pub wb: Arc<Workbook>,
@@ -151,7 +152,7 @@ pub struct Clipboard {
 /// Whether a document's active content (macros) may run without asking the person first. There
 /// is no default: whoever makes a document says where it came from ([`DocState::new`]), so a new
 /// way of building one from bytes can't come out trusted by omission.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Trust {
     /// Made in this session: a new workbook or a sample.

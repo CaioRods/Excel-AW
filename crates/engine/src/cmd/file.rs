@@ -10,6 +10,7 @@ pub fn specs() -> Vec<CommandSpec> {
         cmd!(noundo "file.new", "New Workbook", ["File"], Some("Cmd+N"), "{sample?: \"budget\"|\"sales\"|\"grades\"}", always, new_workbook),
         cmd!(noundo "file.open", "Open…", ["File"], Some("Cmd+O"), "{path} | {name, base64}, plus {password} for a password-protected workbook and {csvAsText?: bool} to keep every csv/tsv/txt field as text, with no number or date conversion (xlsx, xlsm, xls import, xlsb and ods data import, csv, tsv, txt, json)", always, open),
         cmd!(noundo "file.save", "Save", ["File"], Some("Cmd+S"), "{path?} (xlsx by default; .csv/.tsv/.json/.html/.pdf by extension)", has_doc, save),
+        cmd!(noundo "file.rename", "Rename Workbook", ["File"], None, "{name}: rename in the current directory without saving pending edits", has_doc, rename),
         cmd!(noundo "file.saveAs", "Save As…", ["File"], Some("Cmd+Shift+S"), "{path} (.xlsx, .csv, .tsv, .json, .html, or .pdf: a PDF of the active sheet)", has_doc, save_as),
         cmd!(query "file.saveBytes", "Encode Workbook", [], None, "{format?: xlsx|csv|tsv|json|html} → {base64}", has_doc, save_bytes),
         cmd!(noundo "file.close", "Close", ["File"], Some("Cmd+W"), "{force?: bool, document?: bool} (closes the active window, or with `document` the workbook and all its windows; the workbook closes with its last window)", has_doc, close),
@@ -29,6 +30,49 @@ pub fn specs() -> Vec<CommandSpec> {
         cmd!(noundo "window.close", "Close Window", ["Window"], None, "{window?, doc?, force?: bool} → {closed, document}: closes a window (the active one by default); its workbook closes with its last window, asking first when it has unsaved changes unless `force`", has_doc, close_window),
         cmd!(query "window.list", "Windows", ["Window"], None, "{} → [{window, doc, index, title, dirty, active, hidden}]", always, |s, _| Ok(s.window_list())),
     ]
+}
+
+fn rename(s: &mut Session, p: &Json) -> Result<Json> {
+    let name = str_param(p, "name").unwrap_or("").trim();
+    if name.is_empty()
+        || name.chars().count() > 200
+        || name.ends_with(['.', ' '])
+        || name.chars().any(|c| c.is_control() || matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'))
+        || matches!(name, "." | "..")
+    {
+        return Err(bad("file.rename", "Enter a valid workbook name"));
+    }
+    let old = s.doc()?.path.clone();
+    let destination = if let Some(path) = &old {
+        let source = std::path::Path::new(path);
+        let mut target = source.with_file_name(name);
+        if let Some(ext) = source.extension() {
+            let ext = ext.to_string_lossy();
+            if !name.rsplit_once('.').is_some_and(|(stem, suffix)| !stem.is_empty() && suffix.eq_ignore_ascii_case(&ext)) {
+                target.set_file_name(format!("{name}.{ext}"));
+            }
+        }
+        if target != source {
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                if target.exists() {
+                    return Err(bad("file.rename", "A file with that name already exists"));
+                }
+                std::fs::rename(source, &target).map_err(|e| bad("file.rename", e.to_string()))?;
+            }
+        }
+        Some(target.to_string_lossy().into_owned())
+    } else {
+        None
+    };
+    let d = s.doc_mut()?;
+    d.title = destination
+        .as_deref()
+        .and_then(|p| std::path::Path::new(p).file_name())
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| name.to_string());
+    d.path = destination;
+    Ok(json!({"path":d.path,"name":d.title}))
 }
 
 fn new_workbook(s: &mut Session, p: &Json) -> Result<Json> {
@@ -267,4 +311,31 @@ fn close_window(s: &mut Session, p: &Json) -> Result<Json> {
     }
     s.close_window(id);
     Ok(json!({"closed": true, "document": true}))
+}
+
+#[cfg(test)]
+mod aw_rename_tests {
+    use super::*;
+    #[test]
+    fn rename_keeps_pending_work_and_does_not_replace_an_existing_file() {
+        let dir = std::env::temp_dir().join(format!("aw-rename-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let old = dir.join("original.xlsx");
+        let destination = dir.join("renamed.xlsx");
+        std::fs::write(&old, b"saved bytes").unwrap();
+        std::fs::write(&destination, b"existing").unwrap();
+        let mut s = Session::new();
+        s.new_workbook();
+        s.doc_mut().unwrap().path = Some(old.to_string_lossy().into_owned());
+        assert!(rename(&mut s, &json!({"name":"renamed"})).is_err());
+        assert_eq!(std::fs::read(&destination).unwrap(), b"existing");
+        std::fs::remove_file(&destination).unwrap();
+        let wb = s.doc().unwrap().wb.clone();
+        rename(&mut s, &json!({"name":"renamed"})).unwrap();
+        assert!(std::sync::Arc::ptr_eq(&wb, &s.doc().unwrap().wb));
+        assert!(!old.exists());
+        assert_eq!(std::fs::read(&destination).unwrap(), b"saved bytes");
+        assert!(rename(&mut s, &json!({"name":"../escape"})).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

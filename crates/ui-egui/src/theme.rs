@@ -361,11 +361,11 @@ pub fn apply(ctx: &egui::Context, dark: bool) {
         v.widgets.active.weak_bg_fill = t.pressed;
         v.widgets.inactive.bg_stroke = Stroke::new(1.0, t.input_border);
         // 0.37 raises the default widget corner radii; GridCraft keeps its 0.36 shape (#8617).
-        v.widgets.noninteractive.corner_radius = egui::CornerRadius::same(2);
-        v.widgets.inactive.corner_radius = egui::CornerRadius::same(2);
-        v.widgets.hovered.corner_radius = egui::CornerRadius::same(3);
-        v.widgets.active.corner_radius = egui::CornerRadius::same(2);
-        v.widgets.open.corner_radius = egui::CornerRadius::same(2);
+        v.widgets.noninteractive.corner_radius = egui::CornerRadius::same(6);
+        v.widgets.inactive.corner_radius = egui::CornerRadius::same(6);
+        v.widgets.hovered.corner_radius = egui::CornerRadius::same(6);
+        v.widgets.active.corner_radius = egui::CornerRadius::same(6);
+        v.widgets.open.corner_radius = egui::CornerRadius::same(6);
         v.window_corner_radius = egui::CornerRadius::same(15);
         v.window_stroke = Stroke::new(1.0, t.input_border);
         v.window_shadow = egui::epaint::Shadow { offset: [0, 8], blur: 24, spread: 0, color: t.shadow };

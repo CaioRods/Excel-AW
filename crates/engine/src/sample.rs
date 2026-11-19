@@ -8,8 +8,17 @@ use serde_json::json;
 
 use crate::{DocState, Session};
 
-pub const SAMPLES: &[(&str, &str)] =
-    &[("recebimento", "Conferência de recebimento"), ("budget", "Household Budget"), ("sales", "Quarterly Sales Dashboard"), ("grades", "Gradebook")];
+pub const SAMPLES: &[(&str, &str)] = &[
+    ("aw_budget", "Orçamento mensal"),
+    ("aw_sales", "Controle de vendas"),
+    ("aw_stock", "Controle de estoque"),
+    ("aw_tasks", "Planejamento de tarefas"),
+    ("aw_cash", "Fluxo de caixa"),
+    ("recebimento", "Conferência de recebimento"),
+    ("budget", "Household Budget"),
+    ("sales", "Quarterly Sales Dashboard"),
+    ("grades", "Gradebook"),
+];
 
 pub fn title(name: &str) -> String {
     SAMPLES.iter().find(|(n, _)| *n == name).map(|(_, t)| t.to_string()).unwrap_or_else(|| "Sample".into())
@@ -22,6 +31,7 @@ pub fn build(name: &str) -> Option<Workbook> {
     if let Some(sh) = wb.sheet_mut(0) {
         sh.name = match name {
             "recebimento" => "Recebimento".into(),
+            n if n.starts_with("aw_") && SAMPLES.iter().any(|(key, _)| *key == n) => title(n),
             "budget" => "Budget".into(),
             "sales" => "Sales".into(),
             "grades" => "Grades".into(),
@@ -31,6 +41,7 @@ pub fn build(name: &str) -> Option<Workbook> {
     s.add_document(DocState::new(wb, None, title(name), crate::Trust::Local));
     let ok = match name {
         "recebimento" => recebimento(&mut s),
+        n if n.starts_with("aw_") => portuguese(&mut s, n),
         "budget" => budget(&mut s),
         "sales" => sales(&mut s),
         "grades" => grades(&mut s),
@@ -250,4 +261,78 @@ fn grades(s: &mut Session) -> bool {
 /// A blank sheet (for callers that need one without a session).
 pub fn blank_sheet(name: &str) -> Sheet {
     Sheet::new(name)
+}
+
+/// Original, editable Brazilian Portuguese templates. Amounts are examples in BRL.
+fn portuguese(s: &mut Session, name: &str) -> bool {
+    let (headers, rows, formula, money) = match name {
+        "aw_budget" => (
+            json!([["Categoria", "Previsto (R$)", "Realizado (R$)", "Diferença (R$)"]]),
+            json!([["Alimentação", 800, 750], ["Transporte", 350, 320], ["Moradia", 1500, 1500], ["Saúde", 200, 180]]),
+            "B{r}-C{r}",
+            "B5:D25",
+        ),
+        "aw_sales" => (
+            json!([["Produto", "Quantidade", "Valor unitário (R$)", "Total (R$)"]]),
+            json!([["Produto A", 10, 25], ["Produto B", 5, 40], ["Produto C", 8, 15]]),
+            "B{r}*C{r}",
+            "C5:D25",
+        ),
+        "aw_stock" => (
+            json!([["Produto", "Entradas", "Saídas", "Saldo"]]),
+            json!([["Produto A", 100, 20], ["Produto B", 60, 15], ["Produto C", 80, 30]]),
+            "B{r}-C{r}",
+            "",
+        ),
+        "aw_cash" => (
+            json!([["Descrição", "Entradas (R$)", "Saídas (R$)", "Resultado (R$)"]]),
+            json!([["Recebimentos", 3500, 0], ["Fornecedores", 0, 1200], ["Despesas operacionais", 0, 600]]),
+            "B{r}-C{r}",
+            "B5:D25",
+        ),
+        "aw_tasks" => (
+            json!([["Tarefa", "Responsável", "Prazo", "Situação"]]),
+            json!([
+                ["Definir prioridades", "Equipe", "dd/mm/aaaa", "A fazer"],
+                ["Revisar entregas", "Responsável", "dd/mm/aaaa", "Em andamento"],
+                ["Registrar resultados", "Equipe", "dd/mm/aaaa", "A fazer"]
+            ]),
+            "",
+            "",
+        ),
+        _ => return false,
+    };
+    let mut ok = run(s, "range.setValues", json!({"range":"A1","values":[[title(name)]]}));
+    ok &= run(s, "home.cellStyle", json!({"range":"A1","name":"Title"}));
+    ok &= run(s, "range.setValues", json!({"range":"A2","values":[["Substitua os exemplos pelos seus dados. Valores monetários em reais (R$)."]]}));
+    ok &= run(s, "range.setValues", json!({"range":"A4","values":headers}));
+    ok &= run(s, "range.setValues", json!({"range":"A5","values":rows}));
+    if !formula.is_empty() {
+        for row in 5..=24 {
+            let expression = formula.replace("{r}", &row.to_string());
+            ok &= run(s, "cell.set", json!({"cell":format!("D{row}"),"input":format!("=IF(COUNT(B{row}:C{row})=2,{expression},\"\")")}));
+        }
+        ok &= run(s, "cell.set", json!({"cell":"D25","input":"=SUM(D5:D24)"}));
+        ok &= run(s, "cell.set", json!({"cell":"A25","input":"Total"}));
+    }
+    ok &= run(s, "insert.table", json!({"range":"A4:D24","style":"TableStyleMedium2","name":"Dados"}));
+    ok &= run(s, "home.columnWidth", json!({"cols":"A:A","width":240}));
+    ok &= run(s, "home.columnWidth", json!({"cols":"B:D","width":160}));
+    if !money.is_empty() {
+        ok &= run(s, "home.numberFormat", json!({"range":money,"code":"\"R$\" #,##0.00"}));
+    }
+    ok
+}
+
+#[cfg(test)]
+mod aw_template_tests {
+    #[test]
+    fn portuguese_models_are_real_workbooks() {
+        for key in ["aw_budget", "aw_sales", "aw_stock", "aw_tasks", "aw_cash"] {
+            let wb = super::build(key).expect("template must build through real engine commands");
+            let sheet = wb.sheet(0).unwrap();
+            assert_eq!(sheet.name, super::title(key));
+            assert!(!sheet.cells.is_empty());
+        }
+    }
 }

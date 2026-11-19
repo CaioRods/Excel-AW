@@ -57,6 +57,11 @@ fn press(h: &mut Harness, pos: Pos2) {
 }
 
 fn assert_cursor(h: &Harness, expected: CursorIcon) {
+    if expected == CursorIcon::Cell {
+        assert!(h.output().platform_output.cursor_image.is_some(), "cell selection uses the native AW cross");
+    } else {
+        assert!(h.output().platform_output.cursor_image.is_none(), "specialized cursors clear the cell bitmap");
+    }
     assert_eq!(h.output().platform_output.cursor_icon, expected, "drag state: {:?}", h.state().grid.drag);
 }
 
@@ -331,4 +336,78 @@ fn draw_tools_keep_crosshair_and_pen_still_creates_ink() {
             );
         }
     }
+}
+
+fn ctrl_pointer(h: &mut Harness, pos: Pos2, pressed: bool) {
+    let modifiers = Modifiers { ctrl: true, command: true, ..Modifiers::NONE };
+    h.input_mut().events.push(Event::ModifiersChanged(modifiers));
+    frame(h, Event::PointerMoved(pos));
+    frame(h, Event::PointerButton { pos, button: PointerButton::Primary, pressed, modifiers });
+}
+
+#[test]
+fn ctrl_click_removes_a_cell_inside_a_block_and_reselects_without_editing() {
+    let mut h = harness();
+    h.state_mut().session.execute("selection.set", json!({"range":"A1:C3,F5"})).unwrap();
+    h.run_steps(3);
+    let pos = cell(&h, "B2").center();
+    ctrl_pointer(&mut h, pos, true);
+    ctrl_pointer(&mut h, pos, false);
+    h.run_steps(3);
+    let selected = &h.state().session.active().unwrap().selection;
+    assert!(!selected.contains(CellRef::parse("B2").unwrap()));
+    for a1 in ["A1", "C3", "F5"] {
+        assert!(selected.contains(CellRef::parse(a1).unwrap()), "{a1}");
+    }
+    assert!(h.state().editor.is_none());
+    ctrl_pointer(&mut h, pos, true);
+    ctrl_pointer(&mut h, pos, false);
+    h.run_steps(3);
+    assert!(h.state().session.active().unwrap().selection.contains(CellRef::parse("B2").unwrap()));
+    assert!(h.state().editor.is_none(), "Ctrl clicks must not enter edit mode as a double-click");
+}
+
+#[test]
+fn ctrl_drag_subtracts_a_rectangle_without_losing_other_areas() {
+    let mut h = harness();
+    h.state_mut().session.execute("selection.set", json!({"range":"A1:D4,F7"})).unwrap();
+    h.run_steps(3);
+    let from = cell(&h, "B2").center();
+    let to = cell(&h, "C3").center();
+    ctrl_pointer(&mut h, from, true);
+    frame(&mut h, Event::PointerMoved(to));
+    h.run_steps(2);
+    ctrl_pointer(&mut h, to, false);
+    h.run_steps(3);
+    let selected = &h.state().session.active().unwrap().selection;
+    for a1 in ["B2", "C2", "B3", "C3"] {
+        assert!(!selected.contains(CellRef::parse(a1).unwrap()), "{a1} must be removed");
+    }
+    for a1 in ["A1", "D4", "F7"] {
+        assert!(selected.contains(CellRef::parse(a1).unwrap()), "{a1} must stay selected");
+    }
+}
+
+#[test]
+fn ctrl_deselection_keeps_the_active_cell_and_can_return_to_a_single_selection() {
+    let mut h = harness();
+    h.state_mut().session.execute("selection.set", json!({"range":"C5:K19","active":"C5"})).unwrap();
+    h.run_steps(3);
+    for a1 in ["D7", "C15", "G18"] {
+        let p = cell(&h, a1).center();
+        ctrl_pointer(&mut h, p, true);
+        ctrl_pointer(&mut h, p, false);
+        h.run_steps(3);
+        let sel = &h.state().session.active().unwrap().selection;
+        assert!(!sel.contains(CellRef::parse(a1).unwrap()));
+        assert_eq!(sel.active, CellRef::parse("C5").unwrap(), "removing another cell must not create an extra white active cell elsewhere");
+    }
+    let p = cell(&h, "M4").center();
+    h.input_mut().events.push(Event::ModifiersChanged(Modifiers::NONE));
+    button(&mut h, p, true);
+    button(&mut h, p, false);
+    h.run_steps(3);
+    let sel = &h.state().session.active().unwrap().selection;
+    assert!(sel.is_single_cell());
+    assert_eq!(sel.active, CellRef::parse("M4").unwrap());
 }

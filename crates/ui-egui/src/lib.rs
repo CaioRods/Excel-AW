@@ -20,6 +20,7 @@ pub const UPDATE_APP: craft_update::app::App = craft_update::app::App {
 
 pub mod backstage;
 mod border_preview;
+mod cell_cursor;
 mod cell_pictures;
 mod chartcache;
 pub mod chartview;
@@ -78,6 +79,8 @@ pub use control::{ControlRequest, ControlResponse};
 
 mod app;
 mod clock;
+use aw_workspace::document_strip;
+pub use aw_workspace::profile;
 mod services;
 mod state;
 
@@ -104,6 +107,7 @@ fn parse_resize_direction(value: &str) -> Option<egui::ResizeDirection> {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct UiState {
+    pub profile: profile::Profile,
     /// The manual preference, retained when following the system appearance.
     pub dark: bool,
     pub system_theme: bool,
@@ -172,6 +176,7 @@ impl UiState {
 impl Default for UiState {
     fn default() -> Self {
         UiState {
+            profile: profile::Profile::default(),
             dark: false,
             system_theme: false,
             ribbon_tab: "Home".into(),
@@ -247,6 +252,10 @@ pub struct Perf {
 }
 
 pub struct SheetApp {
+    /// The enclosing AWcontrol owns document tabs and the native frame.
+    pub external_workspace: bool,
+    pub(crate) workspace_transfer: Option<String>,
+    pub(crate) workspace_transfer_at: f64,
     pub session: Session,
     pub ui: UiState,
     /// The window chrome to draw (see [`Chrome`]).
@@ -398,5 +407,21 @@ mod viewport_command_tests {
             assert!(a.viewport_commands.contains(&expected), "{id} queues {expected:?}");
         }
         assert!(a.run("ui.window.beginResize", serde_json::json!({"direction": "diagonal"})).is_err());
+    }
+}
+
+#[cfg(test)]
+mod aw_workspace_action_tests {
+    #[test]
+    fn detach_preserves_the_open_workbook_and_rejects_unknown_actions() {
+        let mut session = gridcraft_engine::Session::new();
+        session.new_workbook();
+        let mut app = crate::SheetApp::new(session, crate::Services::default());
+        app.external_workspace = true;
+        let before = app.session.active().map(|d| d.title.clone());
+        app.run("ui.workspace.action", serde_json::json!({"action":"detach"})).unwrap();
+        assert!(!app.external_workspace);
+        assert_eq!(before, app.session.active().map(|d| d.title.clone()));
+        assert!(app.run("ui.workspace.action", serde_json::json!({"action":"shell"})).is_err());
     }
 }

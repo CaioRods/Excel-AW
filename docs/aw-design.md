@@ -1,0 +1,20 @@
+# Interface AW
+
+Atualizado em 2026-11-18.
+
+As abas usam uma faixa fixa de 32 pontos: logo do app, nome, fechar e novo documento ficam alinhados, inclusive com escala de interface maior. Os cantos são arredondados e a reordenação anima por 120 ms; a preferência por desativar animações é respeitada.
+
+Excel e Word compartilham o componente de navegação: linhas de 38 pontos, barra lateral de 196 pontos com degradê vermelho/vinho e iluminação acrílica translúcida, grupo Página Inicial/Novo/Abrir, separador, operações de arquivo, Conta e Opções na base. As ações continuam usando os comandos existentes. Recuperação do Word fica em Abrir; Sobre fica em Conta.
+
+As janelas de diálogo têm fundo opaco, para os textos da tela anterior não atravessarem o conteúdo. As marcas já existentes de cada app aparecem ao lado dos nomes nas abas e em Sobre; os créditos públicos continuam como @CaioRods.
+
+Ctrl/Cmd + clique retira células de dentro de blocos selecionados e preserva outras áreas. Ctrl/Cmd + arraste calcula a região removida a partir da seleção original, sem alternar repetidamente entre quadros. Uma célula ativa permanece quando toda a seleção seria removida.
+
+Em janelas menores, os comandos do menu podem rolar; Conta e Opções permanecem separados na base, sem sobreposição com os comandos.
+
+AWcontrol hospeda cada editor nativo em uma página própria no Windows. A faixa interna é omitida somente nesse modo; novos arquivos e modelos são encaminhados à central autenticada local. Sem a central, os apps continuam independentes. O fechamento é solicitado ao editor, que mantém os avisos de salvar/cancelar.
+A desseleção preserva a célula ativa quando possível e contorna a união das áreas, inclusive buracos removidos, sem linhas internas entre os retângulos resultantes.
+
+O fechamento confirmado com Não salvar no modo hospedado descarta o documento antes de concluir o encerramento, sem reabrir a pergunta. Cancelar preserva os dados.
+
+O cabeçalho interno não move ou maximiza uma página hospedada. A integração permite salvar, salvar como, renomear e destacar mantendo o mesmo processo e a pasta de trabalho, e oculta o botão individual da barra de tarefas enquanto hospedado.

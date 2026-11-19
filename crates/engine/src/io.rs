@@ -17,7 +17,7 @@ pub const XLSX_FUNCTIONS: gridcraft_xlsx::FunctionInfo = gridcraft_xlsx::Functio
 };
 
 /// File formats GridCraft reads or writes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum FileKind {
     Xlsx,
     /// Excel 97-2003 workbook (import only).

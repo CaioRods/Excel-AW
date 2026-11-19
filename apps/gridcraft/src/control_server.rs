@@ -61,6 +61,8 @@ fn make_token(port: u16, chosen: Option<String>) -> std::io::Result<String> {
         if t.len() < control_auth::MIN_TOKEN_LEN {
             return Err(std::io::Error::other(format!("the control token must have at least {} characters", control_auth::MIN_TOKEN_LEN)));
         }
+        #[cfg(windows)]
+        let _ = control_auth::write_token_file(port, &t);
         eprintln!("gridcraft: control channel on 127.0.0.1:{port} requires the token you set (clients: GRIDCRAFT_CONTROL_TOKEN)");
         return Ok(t);
     }
@@ -74,8 +76,10 @@ fn make_token(port: u16, chosen: Option<String>) -> std::io::Result<String> {
 
 pub fn start(port: u16, chosen_token: Option<String>, ctx: egui::Context) -> std::io::Result<Receiver<ControlRequest>> {
     let listener = TcpListener::bind(("127.0.0.1", port))?;
+    let port = listener.local_addr()?.port();
     let token: Arc<str> = make_token(port, chosen_token)?.into();
     let rx = serve_listener(listener, token, ctx)?;
+    crate::workspace_session::register(port);
     log::info!("control channel listening on 127.0.0.1:{port}");
     Ok(rx)
 }

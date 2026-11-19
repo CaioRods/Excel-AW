@@ -17,9 +17,10 @@ mod graphics;
 mod logging;
 #[cfg(target_os = "macos")]
 mod native_menu;
-mod print;
 #[cfg(windows)]
 mod open_requests;
+mod print;
+mod workspace_session;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -57,6 +58,17 @@ impl eframe::App for App {
             });
         }
         self.0.logic(ctx);
+        #[cfg(windows)]
+        if let Some(window) = _frame.winit_window() {
+            use winit::platform::windows::{CornerPreference, WindowExtWindows};
+            let key = egui::Id::unique("aw_native_window_mode");
+            if ctx.data(|d| d.get_temp::<bool>(key)) != Some(self.0.external_workspace) {
+                window.set_skip_taskbar(self.0.external_workspace);
+                window.set_corner_preference(if self.0.external_workspace { CornerPreference::DoNotRound } else { CornerPreference::Round });
+                ctx.data_mut(|d| d.insert_temp(key, self.0.external_workspace));
+            }
+        }
+
         if ctx.input(|input| input.viewport().close_requested()) && self.0.printing.busy() {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
         }
@@ -144,6 +156,9 @@ fn load_prefs(app: &mut SheetApp) {
 fn save_prefs(app: &SheetApp) {
     if !prefs_enabled() {
         return;
+    }
+    if let Err(error) = app.ui.profile.flush_shared() {
+        log::warn!("Cannot save AW profile: {error}");
     }
     let Some(dir) = config_dir() else { return };
     let _ = std::fs::create_dir_all(&dir);
@@ -315,7 +330,16 @@ fn main() -> eframe::Result<()> {
         i += 1;
     }
     #[cfg(windows)]
-    let requests = if prefs_enabled() && control_port.is_none() && sample.is_none() {
+    if control_port.is_none()
+        && sample.is_none()
+        && !aw_workspace::control::embedded()
+        && !files.is_empty()
+        && aw_workspace::control::forward(0, &files.iter().map(std::path::PathBuf::from).collect::<Vec<_>>())
+    {
+        return Ok(());
+    }
+    #[cfg(windows)]
+    let requests = if !aw_workspace::control::embedded() && prefs_enabled() && control_port.is_none() && sample.is_none() {
         match open_requests::OpenRequests::start("Excel AW", &files.iter().map(std::path::PathBuf::from).collect::<Vec<_>>()) {
             Ok(Some(requests)) => Some(requests),
             Ok(None) => return Ok(()),
@@ -353,6 +377,9 @@ fn main() -> eframe::Result<()> {
     app.start_update_check();
     let control_port = control_port;
     load_prefs(&mut app);
+    if prefs_enabled() {
+        app.ui.profile.enable_sharing();
+    }
     // Stamp the startup workbook's author from the persisted user name.
     if app.session.documents().is_empty() {
         app.session.new_workbook();
@@ -364,16 +391,22 @@ fn main() -> eframe::Result<()> {
     for f in &files {
         app.open_path(f);
     }
-    // Linux/BSD: Excel's layout — no window-manager title bar above ours; our title bar carries the
+    // Windows/Linux/BSD: one document header, without a second system caption; our header carries the
     // window controls. `GRIDCRAFT_SYSTEM_TITLEBAR=1` keeps the system frame.
-    app.window_controls = cfg!(not(any(target_os = "macos", target_os = "windows"))) && std::env::var_os("GRIDCRAFT_SYSTEM_TITLEBAR").is_none();
+    if let Some((command, params)) = aw_workspace::control::startup() {
+        app.run_or_alert(&command, params);
+    }
+    app.external_workspace = aw_workspace::control::embedded();
+    app.window_controls = !app.external_workspace && cfg!(not(target_os = "macos")) && std::env::var_os("GRIDCRAFT_SYSTEM_TITLEBAR").is_none();
     let mut viewport = egui::ViewportBuilder::default()
         .with_title("Excel AW")
         .with_inner_size([1440.0, 900.0])
         .with_min_inner_size([640.0, 420.0])
         .with_app_id("ai.storyteller.gridcraft")
         .with_drag_and_drop(true)
-        .with_decorations(!app.window_controls);
+        .with_decorations(!app.window_controls && !app.external_workspace)
+        .with_visible(!app.external_workspace)
+        .with_taskbar(!app.external_workspace);
     if cfg!(target_os = "macos") {
         viewport = viewport.with_fullsize_content_view(true).with_titlebar_shown(false).with_title_shown(false);
     }
@@ -428,7 +461,7 @@ fn main() -> eframe::Result<()> {
                     return Err("the app was already created".into());
                 };
                 SheetApp::setup_context_for_language(&cc.egui_ctx, app.ui.dark, app.ui.language);
-                if let Some(port) = control_port {
+                if let Some(port) = control_port.or(if cfg!(windows) { Some(0) } else { None }) {
                     match control_server::start(port, control_token.clone(), cc.egui_ctx.clone()) {
                         Ok(rx) => app.control_rx = Some(rx),
                         Err(e) => log::error!("control channel on port {port}: {e}"),

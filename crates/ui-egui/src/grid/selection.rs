@@ -77,6 +77,49 @@ pub(crate) fn outline_bands(rect: Rect, width: f32, clip: Rect) -> Vec<Rect> {
     sides.into_iter().map(|s| s.intersect(clip)).filter(|s| s.is_finite() && s.width() > 0.0 && s.height() > 0.0).collect()
 }
 
+/// Draw the perimeter of the selected union, including removed holes, without internal seams.
+/// It works on visible rectangles rather than walking individual cells or full columns.
+fn union_outline_bands(areas: &[Rect], width: f32, clip: Rect) -> Vec<Rect> {
+    let mut bands = Vec::new();
+    for area in areas.iter().filter(|r| r.is_finite() && r.intersects(clip)) {
+        for side in 0..4 {
+            let vertical = side < 2;
+            let line = match side {
+                0 => area.left(),
+                1 => area.right(),
+                2 => area.top(),
+                _ => area.bottom(),
+            };
+            let mut spans = vec![if vertical { (area.top(), area.bottom()) } else { (area.left(), area.right()) }];
+            for other in areas {
+                let covered = match side {
+                    0 => other.left() < line && other.right() >= line,
+                    1 => other.left() <= line && other.right() > line,
+                    2 => other.top() < line && other.bottom() >= line,
+                    _ => other.top() <= line && other.bottom() > line,
+                };
+                if !covered {
+                    continue;
+                }
+                let (lo, hi) = if vertical { (other.top(), other.bottom()) } else { (other.left(), other.right()) };
+                spans = spans.into_iter().flat_map(|(a, b)| [(a, b.min(lo)), (a.max(hi), b)]).filter(|(a, b)| b > a).collect();
+            }
+            for (a, b) in spans {
+                let band = if vertical {
+                    Rect::from_min_max(pos2(line - width / 2.0, a), pos2(line + width / 2.0, b))
+                } else {
+                    Rect::from_min_max(pos2(a, line - width / 2.0), pos2(b, line + width / 2.0))
+                };
+                let band = band.intersect(clip);
+                if band.is_positive() {
+                    bands.push(band);
+                }
+            }
+        }
+    }
+    bands
+}
+
 /// `outline` is where the current area's border is drawn this frame (see `selection_glide`).
 pub(crate) struct SelectionPaintInput<'a> {
     pub(crate) painter: &'a Painter,
@@ -122,7 +165,12 @@ pub(crate) fn paint_selection(input: SelectionPaintInput<'_>) {
             }
         }
     }
-    if cur_here {
+    if sel.ranges.len() > 1 {
+        let areas: Vec<_> = sel.ranges.iter().filter(|r| range_in_pane(**r, rows, cols)).map(|r| geo.range_rect(sh, *r)).collect();
+        for side in union_outline_bands(&areas, 2.0, p.clip_rect()) {
+            p.rect_filled(side, 0.0, t.sel_border);
+        }
+    } else if cur_here {
         for side in outline_bands(outline.expand(0.5), 2.0, p.clip_rect()) {
             p.rect_filled(side, 0.0, t.sel_border);
         }
@@ -176,29 +224,33 @@ pub(crate) fn paint_selection(input: SelectionPaintInput<'_>) {
     }
 }
 
-/// The areas after a click: with `add` (Ctrl) the clicked area is added, or removed when it is already
-/// selected (unless it is the only one, so the selection never ends up empty).
-fn toggled_ranges(mut ranges: Vec<String>, clicked: String, add: bool) -> Vec<String> {
-    if !add {
-        return vec![clicked];
-    }
-    if ranges.len() > 1 && ranges.contains(&clicked) {
-        ranges.retain(|x| *x != clicked);
-    } else if !ranges.contains(&clicked) {
-        ranges.push(clicked);
-    }
-    ranges
+/// Applies an additive pointer gesture from its original selection, so every drag frame
+/// removes the new rectangle rather than repeatedly toggling the previous preview.
+pub(super) fn apply_multi_selection(app: &mut SheetApp, base: &gridcraft_engine::Selection, range: RangeRef, remove: bool, active: CellRef) {
+    let ranges = if remove {
+        base.without_range(range)
+    } else {
+        let mut ranges = base.ranges.clone();
+        if !ranges.contains(&range) {
+            ranges.push(range);
+        }
+        ranges
+    };
+    // Removing a different cell must not move the white active cell into an unrelated strip.
+    let active = if remove { base.active } else { active };
+    let active = if ranges.iter().any(|r| r.contains(active)) { active } else { ranges.last().map_or(base.active, |r| r.start) };
+    let ranges: Vec<_> = ranges.iter().map(|r| r.a1()).collect();
+    let _ = app.session.run("selection.set", json!({"range": ranges.join(","), "active": active.a1()}));
 }
 
-pub(super) fn select_ranges(app: &mut SheetApp, r: RangeRef, add: bool, active: CellRef) {
-    let current: Vec<String> =
-        if add { app.session.active().map(|d| d.selection.ranges.iter().map(|x| x.a1()).collect()).unwrap_or_default() } else { vec![] };
-    let clicked = r.a1();
-    let ranges = toggled_ranges(current, clicked.clone(), add);
-    // A removed area takes the active cell with it; `selection.set` then puts it at the start of the last area.
-    let params =
-        if ranges.contains(&clicked) { json!({"range": ranges.join(","), "active": active.a1()}) } else { json!({"range": ranges.join(",")}) };
-    let _ = app.session.run("selection.set", params);
+pub(super) fn select_ranges(app: &mut SheetApp, range: RangeRef, add: bool, active: CellRef) {
+    if add {
+        let base = app.session.active().map(|d| d.selection.clone()).unwrap_or_default();
+        let remove = base.ranges.iter().any(|r| r.intersection(&range) == Some(range));
+        apply_multi_selection(app, &base, range, remove, active);
+    } else {
+        let _ = app.session.run("selection.set", json!({"range": range.a1(), "active": active.a1()}));
+    }
 }
 
 #[cfg(test)]
@@ -286,12 +338,12 @@ mod pane_tests {
 
     #[test]
     fn ctrl_click_on_a_selected_header_deselects_it() {
-        let s = |v: &[&str]| v.iter().map(|x| x.to_string()).collect::<Vec<_>>();
-        assert_eq!(toggled_ranges(s(&["A:A", "C:C"]), "C:C".into(), true), s(&["A:A"]));
-        assert_eq!(toggled_ranges(s(&["A:A"]), "C:C".into(), true), s(&["A:A", "C:C"]));
-        assert_eq!(toggled_ranges(s(&["A:A"]), "A:A".into(), true), s(&["A:A"]));
-        assert_eq!(toggled_ranges(s(&["A1", "B2", "3:3"]), "B2".into(), true), s(&["A1", "3:3"]));
-        assert_eq!(toggled_ranges(s(&["A:A", "C:C"]), "C:C".into(), false), s(&["C:C"]));
+        let mut session = gridcraft_engine::Session::new();
+        session.new_workbook();
+        let mut app = SheetApp::new(session, crate::Services::default());
+        app.session.run("selection.set", json!({"range":"A:C"})).unwrap();
+        select_ranges(&mut app, RangeRef::cols(1, 1), true, CellRef::new(0, 1));
+        assert_eq!(app.session.active().unwrap().selection.a1(), "A:A,C:C");
     }
 
     #[test]
@@ -417,5 +469,35 @@ mod outline_band_tests {
         let clip = Rect::from_min_max(pos2(0.0, 0.0), pos2(800.0, 600.0));
         assert!(outline_bands(Rect::from_min_max(pos2(900.0, 0.0), pos2(950.0, 20.0)), 2.0, clip).is_empty());
         assert!(outline_bands(Rect::from_min_max(pos2(f32::NAN, 0.0), pos2(1.0, 1.0)), 2.0, clip).is_empty());
+    }
+}
+
+#[cfg(test)]
+mod aw_deselection_tests {
+    use super::*;
+    #[test]
+    fn removed_hole_and_outer_edges_are_outlined_without_split_seams() {
+        let areas = [
+            Rect::from_min_max(pos2(0.0, 0.0), pos2(50.0, 10.0)),
+            Rect::from_min_max(pos2(0.0, 20.0), pos2(50.0, 50.0)),
+            Rect::from_min_max(pos2(0.0, 10.0), pos2(10.0, 20.0)),
+            Rect::from_min_max(pos2(20.0, 10.0), pos2(50.0, 20.0)),
+        ];
+        let bands = union_outline_bands(&areas, 2.0, Rect::from_min_max(pos2(-5.0, -5.0), pos2(55.0, 55.0)));
+        for p in [
+            pos2(0.0, 25.0),
+            pos2(50.0, 25.0),
+            pos2(25.0, 0.0),
+            pos2(25.0, 50.0),
+            pos2(10.0, 15.0),
+            pos2(20.0, 15.0),
+            pos2(15.0, 10.0),
+            pos2(15.0, 20.0),
+        ] {
+            assert!(bands.iter().any(|b| b.contains(p)), "missing boundary {p:?}");
+        }
+        for p in [pos2(25.0, 10.0), pos2(25.0, 20.0), pos2(5.0, 20.0)] {
+            assert!(!bands.iter().any(|b| b.contains(p)), "internal seam {p:?}");
+        }
     }
 }

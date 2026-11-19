@@ -12,32 +12,41 @@ use crate::theme::{self, Tokens};
 
 /// One tab per visible workbook window, above the formula bar.
 pub(crate) fn workbook_tabs(app: &mut SheetApp, ui: &mut Ui) {
-    let windows: Vec<_> = app
-        .open_windows()
-        .into_iter()
-        .filter(|w| app.session.window(w.window).is_some_and(|state| !state.hidden))
-        .collect();
-    if windows.len() < 2 {
+    if app.external_workspace && app.session.documents().len() <= 1 {
         return;
     }
-
+    if app.native_windows {
+        return;
+    }
+    let windows: Vec<_> = app.open_windows().into_iter().filter(|w| app.session.window(w.window).is_some_and(|state| !state.hidden)).collect();
+    let entries: Vec<_> = windows.into_iter().map(|w| (w.window, w.label(), w.active)).collect();
     let t = Tokens::get(ui.ctx());
-    egui::Panel::top("workbook_tabs").frame(egui::Frame::NONE.fill(t.window).inner_margin(egui::Margin::symmetric(8, 4))).show(ui, |ui| {
-        egui::ScrollArea::horizontal().id_salt("workbook_tab_scroll").auto_shrink([false, true]).show(ui, |ui| {
-            ui.horizontal(|ui| {
-                for w in windows {
-                    let label = if w.dirty { format!("● {}", w.title) } else { w.title };
-                    let text = theme::available_text(ui, &label);
-                    let response = ui.push_id(w.window, |ui| {
-                        ui.add(egui::Button::selectable(w.active, text).min_size(vec2(70.0, 25.0))).on_hover_text(label)
-                    }).inner;
-                    if !w.active && response.clicked() {
-                        app.run_or_alert("view.switchWindows", json!({"window": w.window}));
-                    }
-                }
-            });
-        });
+    let style = crate::document_strip::Style {
+        brand: "Excel AW",
+        movable: !app.external_workspace,
+        accent: t.accent,
+        active: t.window,
+        text: t.text,
+        on_accent: t.on_accent,
+        trailing_width: if app.window_controls { 182.0 } else { 44.0 },
+        logo: crate::document_strip::logo(ui.ctx(), "Excel AW", include_bytes!("../../../assets/app-icon/excel-aw.png")),
+    };
+    let action = crate::document_strip::show_with_style(ui, &entries, style, app.ui.language == crate::i18n::Language::PtBr, |ui| {
+        if app.window_controls {
+            ui.add_space(138.0);
+        }
+        crate::ribbon::account_button(app, ui)
     });
+    match action {
+        Some(crate::document_strip::Action::Select(id)) => {
+            app.backstage = None;
+            app.run_or_alert("view.switchWindows", json!({"window": id}));
+        }
+        Some(crate::document_strip::Action::Close(id)) => app.run_or_alert("window.close", json!({"window": id})),
+        Some(crate::document_strip::Action::New) => app.run_or_alert("file.new", json!({})),
+        Some(crate::document_strip::Action::Home) => app.run_or_alert("ui.backstage", json!({"page": "home"})),
+        None => {}
+    }
 }
 
 /// The rename field asks for focus only while it has not got it yet. Asking again on the frame it lost focus (Enter or a click elsewhere)

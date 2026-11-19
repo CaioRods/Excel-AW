@@ -29,6 +29,9 @@ impl SheetApp {
     /// Constructs a `SheetApp` with default UI, grid, printing, control and screenshot state and the caller's session and services.
     pub fn new(session: Session, services: Services) -> SheetApp {
         SheetApp {
+            external_workspace: false,
+            workspace_transfer: None,
+            workspace_transfer_at: 0.0,
             session,
             ui: UiState::default(),
             chrome: Chrome::default(),
@@ -108,6 +111,16 @@ impl SheetApp {
 
     /// Per-frame logic (control channel, screenshots). Call before `ui`.
     pub fn logic(&mut self, ctx: &egui::Context) {
+        if self.workspace_transfer.is_some() {
+            if now_ms() - self.workspace_transfer_at > 60000.0 {
+                self.workspace_transfer = None;
+            } else {
+                ctx.request_repaint_after(std::time::Duration::from_secs(1));
+            }
+        }
+
+        self.ui.profile.sync();
+        ctx.request_repaint_after(std::time::Duration::from_secs(1));
         self.ensure_text_width(ctx);
         // A keytip control request lives one frame: the ribbon consumes it during `ui`, and
         // anything that never reached a control (collapsed ribbon, tab switch) is dropped. One
@@ -192,7 +205,12 @@ impl SheetApp {
 
     /// Lays out the whole window.
     pub fn ui(&mut self, ui: &mut egui::Ui) {
+        if self.workspace_transfer.is_some() {
+            ui.disable();
+        }
         let ctx = ui.ctx().clone();
+        // Bitmap cursors are sticky: editing, menus and non-grid widgets must restore their own cursor.
+        ctx.set_cursor_image(None);
         if !self.fonts_ready || self.fonts_rebind {
             ctx.request_repaint();
             return;
@@ -225,6 +243,7 @@ impl SheetApp {
             self.ribbon_keys(&ctx);
         }
         if self.chrome.title_bar {
+            tabs::workbook_tabs(self, ui);
             ribbon::title_bar(self, ui);
         }
         if self.backstage.is_some() {
@@ -232,7 +251,6 @@ impl SheetApp {
             backstage::show(self, ui);
         } else {
             ribbon::show(self, ui);
-            tabs::workbook_tabs(self, ui);
             widgets::notice_bar(self, ui);
             // Python mode edits only in the formula bar: it shows while a Python edit is open,
             // also when the preference hides it.

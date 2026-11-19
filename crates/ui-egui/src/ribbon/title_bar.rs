@@ -41,10 +41,10 @@ pub fn title_bar(app: &mut SheetApp, ui: &mut Ui) {
         theme::horizontal_gradient(ui.painter(), rect, start, end);
         // Dragging the empty title area moves the window.
         let bg = ui.interact(rect, ui.scope_id().with("drag_title"), Sense::click_and_drag());
-        if bg.drag_started() {
+        if !app.external_workspace && bg.drag_started() {
             ui.ctx().send_viewport_cmd(egui::ViewportCommand::StartDrag);
         }
-        if bg.double_clicked() {
+        if !app.external_workspace && bg.double_clicked() {
             let max = ui.ctx().input(|i| i.viewport().maximized.unwrap_or(false));
             ui.ctx().send_viewport_cmd(egui::ViewportCommand::Maximized(!max));
         }
@@ -123,7 +123,7 @@ pub fn title_bar(app: &mut SheetApp, ui: &mut Ui) {
             });
             let left_end = ui.min_rect().right();
             let right = ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if app.window_controls {
+                if app.window_controls && app.native_windows {
                     ui.add_space(3.0 * CONTROL_W);
                 }
                 ui.add_space(8.0);
@@ -149,6 +149,9 @@ pub fn title_bar(app: &mut SheetApp, ui: &mut Ui) {
                 control_keytip(app, ui, &__k, "comments");
                 if __k.clicked() {
                     app.open_dialog("comments", json!({}));
+                }
+                if app.native_windows {
+                    account_button(app, ui);
                 }
                 // Quick light/dark switch (#194); right-click offers System as well. The same
                 // choice lives in File › Display theme and the View tab.
@@ -214,8 +217,7 @@ fn paint_title(ui: &Ui, center: egui::Pos2, title: &str, dirty: bool, max_w: f32
 
 /// Width of one window-control button on the title bar.
 pub const CONTROL_W: f32 = 46.0;
-const CONTROL_TITLE_H: f32 = 38.0;
-const RESIZE_BAND: f32 = 5.0;
+const CONTROL_TITLE_H: f32 = 32.0;
 
 /// Draw application controls and edge resizing for frameless windows.
 pub fn window_frame(app: &mut SheetApp, ctx: &egui::Context) {
@@ -227,6 +229,7 @@ pub fn window_frame(app: &mut SheetApp, ctx: &egui::Context) {
         return;
     }
     let t = Tokens::get(ctx);
+    let on_tabs = app.chrome.title_bar && !app.native_windows;
     let screen = ctx.content_rect();
     let controls = egui::Rect::from_min_size(egui::pos2(screen.max.x - 3.0 * CONTROL_W, screen.min.y), egui::vec2(3.0 * CONTROL_W, CONTROL_TITLE_H));
     egui::Area::new(egui::Id::unique("gc_window_controls")).order(egui::Order::Foreground).fixed_pos(controls.min).show(ctx, |ui| {
@@ -247,6 +250,8 @@ pub fn window_frame(app: &mut SheetApp, ctx: &egui::Context) {
                         0.0,
                         if kind == "close" {
                             egui::Color32::from_rgb(0xC4, 0x2B, 0x1C)
+                        } else if on_tabs {
+                            egui::Color32::from_white_alpha(if resp.is_pointer_button_down_on() { 50 } else { 25 })
                         } else if resp.is_pointer_button_down_on() {
                             t.pressed
                         } else {
@@ -256,7 +261,7 @@ pub fn window_frame(app: &mut SheetApp, ctx: &egui::Context) {
                 }
                 resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, label));
                 let m = r.center();
-                let stroke = egui::Stroke::new(1.0, if kind == "close" && hot { egui::Color32::WHITE } else { t.text });
+                let stroke = egui::Stroke::new(1.0, if on_tabs || (kind == "close" && hot) { egui::Color32::WHITE } else { t.text });
                 match kind {
                     "minimize" => {
                         ui.painter().line_segment([egui::pos2(m.x - 5.0, m.y), egui::pos2(m.x + 5.0, m.y)], stroke);
@@ -292,21 +297,10 @@ pub fn window_frame(app: &mut SheetApp, ctx: &egui::Context) {
     let Some(pos) = ctx.input(|i| i.pointer.hover_pos()) else {
         return;
     };
-    let l = pos.x <= screen.min.x + RESIZE_BAND;
-    let r = pos.x >= screen.max.x - RESIZE_BAND;
-    let top = pos.y <= screen.min.y + RESIZE_BAND;
-    let b = pos.y >= screen.max.y - RESIZE_BAND;
-    let dir = match (l, r, top, b) {
-        (true, false, true, false) => Some(egui::viewport::ResizeDirection::NorthWest),
-        (false, true, true, false) => Some(egui::viewport::ResizeDirection::NorthEast),
-        (true, false, false, true) => Some(egui::viewport::ResizeDirection::SouthWest),
-        (false, true, false, true) => Some(egui::viewport::ResizeDirection::SouthEast),
-        (true, false, _, _) => Some(egui::viewport::ResizeDirection::West),
-        (false, true, _, _) => Some(egui::viewport::ResizeDirection::East),
-        (_, _, true, false) => Some(egui::viewport::ResizeDirection::North),
-        (_, _, false, true) => Some(egui::viewport::ResizeDirection::South),
-        _ => None,
-    };
+    let dir = aw_workspace::window_frame::resize_direction(screen, pos);
+    if let Some(direction) = dir {
+        ctx.set_cursor_icon(aw_workspace::window_frame::resize_cursor(direction));
+    }
     if let Some(dir) = dir
         && ctx.input(|i| i.pointer.primary_pressed())
         && !controls.contains(pos)
@@ -324,6 +318,21 @@ pub fn window_frame(app: &mut SheetApp, ctx: &egui::Context) {
         app.run_or_alert("ui.window.beginResize", json!({"direction": direction}));
     }
     app.flush_viewport_commands(ctx);
+}
+
+/// Shared account avatar in the top document strip.
+pub(crate) fn account_button(app: &mut SheetApp, ui: &mut Ui) {
+    let t = Tokens::get(ui.ctx());
+    let (rect, response) = ui.allocate_exact_size(vec2(28.0, 28.0), Sense::click());
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, app.ui.language.tr("Account")));
+    if !app.ui.profile.avatar(ui, rect) {
+        ui.painter().circle_filled(rect.center(), 13.0, t.accent);
+        let initials: String = app.ui.profile.name.split_whitespace().take(2).filter_map(|p| p.chars().next()).collect();
+        ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, initials, theme::ui_bold(11.0), Color32::WHITE);
+    }
+    if response.on_hover_text(app.ui.language.tr("Account")).clicked() {
+        app.run_or_alert("ui.backstage", json!({"page": "account"}));
+    }
 }
 
 #[cfg(test)]
@@ -395,5 +404,39 @@ mod title_bar_tests {
     fn no_room_draws_nothing_but_does_not_crash() {
         let (_, w, _) = layout_title("Book1.xlsx", true, 0.0);
         assert!(w <= 20.0, "a zero-width slot leaves at most the ellipsis: {w}");
+    }
+}
+
+#[cfg(test)]
+mod aw_surface_tests {
+    #[test]
+    fn header_window_controls_contrast_with_the_graphite_strip_in_light_theme() {
+        let ctx = egui::Context::default();
+        ctx.set_theme(egui::Theme::Light);
+        ctx.set_visuals(egui::Visuals::light());
+        let mut session = gridcraft_engine::Session::new();
+        session.new_workbook();
+        let mut app = crate::SheetApp::new(session, crate::Services::default());
+        app.window_controls = true;
+        ctx.all_styles_mut(|style| style.animation_time = 0.0);
+        let mut shapes = Vec::new();
+        for frame in 0..3 {
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    time: Some(f64::from(frame)),
+                    screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0))),
+                    ..Default::default()
+                },
+                |ui| super::window_frame(&mut app, ui.ctx()),
+            );
+            shapes = std::mem::take(&mut output.shapes);
+            output.drop_without_applying_deltas();
+        }
+        assert!(!crate::theme::Tokens::get(&ctx).dark);
+        assert!(
+            shapes.iter().filter(|shape| matches!(&shape.shape, egui::Shape::LineSegment {stroke,..} if stroke.color==egui::Color32::WHITE)).count()
+                >= 3,
+            "window controls must remain visible on the dark document strip"
+        );
     }
 }

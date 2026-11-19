@@ -82,7 +82,7 @@ fn buttons_with_tip(h: &mut Harness, tip: &str) -> usize {
     let (mut count, mut inside) = (0, false);
     let mut x = 2.0;
     while x < WIDTH {
-        h.input_mut().events.push(Event::PointerMoved(pos2(x, 120.0)));
+        h.input_mut().events.push(Event::PointerMoved(pos2(x, 152.0)));
         h.run_steps(6);
         let shown = h.query_all_by_value(tip).next().is_some();
         if shown && !inside {

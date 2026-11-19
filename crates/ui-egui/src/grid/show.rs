@@ -290,7 +290,11 @@ fn selection_outline(
         view: geo.cells,
         now,
         frame_nr: ui.ctx().cumulative_frame_nr(),
-        animate: app.ui.animations && ui.ctx().global_style().animation_time > 0.0 && !app.shots.in_flight() && !pointer_selecting,
+        animate: sel.ranges.len() == 1
+            && app.ui.animations
+            && ui.ctx().global_style().animation_time > 0.0
+            && !app.shots.in_flight()
+            && !pointer_selecting,
     });
     if app.grid.glide.is_gliding() {
         ui.ctx().request_repaint();

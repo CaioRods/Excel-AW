@@ -15,23 +15,15 @@ use super::zoom::zoom;
 use super::{Dialog, Field, Json, Key, Map, RefPick, SheetApp, json, vec2};
 use gridcraft_engine::model::PageOrder;
 
-/// Translucent acrylic with softly diffused red and amber lighting.
+/// Opaque dialog surface with a restrained accent; document text never shows through.
 fn acrylic_surface(rect: egui::Rect, frame: egui::Frame, dark: bool) -> egui::Shape {
     use egui::epaint::RectShape;
     use egui::{Color32, Rect, Shape, pos2};
 
     let (base, warm, amber) = if dark {
-        (
-            Color32::from_rgba_unmultiplied(40, 37, 39, 221),
-            Color32::from_rgba_unmultiplied(124, 73, 74, 92),
-            Color32::from_rgba_unmultiplied(119, 88, 56, 71),
-        )
+        (Color32::from_rgb(40, 37, 39), Color32::from_rgba_unmultiplied(124, 73, 74, 20), Color32::from_rgba_unmultiplied(119, 88, 56, 20))
     } else {
-        (
-            Color32::from_rgba_unmultiplied(251, 248, 246, 217),
-            Color32::from_rgba_unmultiplied(231, 162, 157, 89),
-            Color32::from_rgba_unmultiplied(241, 205, 138, 86),
-        )
+        (Color32::from_rgb(251, 248, 246), Color32::from_rgba_unmultiplied(231, 162, 157, 20), Color32::from_rgba_unmultiplied(241, 205, 138, 20))
     };
     let blur = (rect.height() * 0.24).clamp(8.0, 48.0);
     let glow = |x: f32, y: f32, color| {
@@ -153,23 +145,27 @@ pub(crate) fn build_params(d: &Dialog) -> Json {
     v
 }
 
+fn show_macro_editor(app: &mut SheetApp, ctx: &egui::Context, mut d: Dialog, home: Option<u64>) {
+    let mut open = true;
+    crate::macro_editor::window(app, ctx, &mut d, &mut open);
+    if !open {
+        app.macros.editor = None;
+        app.grid.macro_overlay = None;
+    } else if app.ui_window() != home {
+        // Something run from the editor switched windows: the editor stays in its own.
+        app.return_dialog(home, d);
+    } else {
+        app.dialog = Some(d);
+    }
+}
+
 /// Takes and draws the active dialog, dispatches its body by name, consumes picture-inbox results, runs OK/confirm commands, handles Esc/close and restores the back-dialog stack.
 pub fn show(app: &mut SheetApp, ctx: &egui::Context) {
     let Some(mut d) = app.dialog.take() else { return };
     let home = app.ui_window();
     // The macro step editor is a large resizable window of its own.
     if d.name == "macroEditor" {
-        let mut open = true;
-        crate::macro_editor::window(app, ctx, &mut d, &mut open);
-        if !open {
-            app.macros.editor = None;
-            app.grid.macro_overlay = None;
-        } else if app.ui_window() != home {
-            // Something run from the editor switched windows: the editor stays in its own.
-            app.return_dialog(home, d);
-        } else {
-            app.dialog = Some(d);
-        }
+        show_macro_editor(app, ctx, d, home);
         return;
     }
     if d.name == "pasteSpecial" {
@@ -194,7 +190,7 @@ pub fn show(app: &mut SheetApp, ctx: &egui::Context) {
     };
     let window_id = egui::Id::unique("dialog").with(&d.name);
     let style = ctx.style_of(ctx.theme());
-    let frame = egui::Frame::window(&style);
+    let frame = egui::Frame::window(&style).corner_radius(12);
     let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Middle, window_id));
     // Reserve the surface below the title, border and controls, then paint at the measured size.
     let surface = painter.add(egui::Shape::Noop);
@@ -786,4 +782,22 @@ fn page_order_preview(ui: &mut egui::Ui, order: PageOrder) {
     let d = (to - from).normalized();
     let n = vec2(-d.y, d.x);
     p.add(egui::Shape::convex_polygon(vec![to, to - d * 6.0 + n * 3.5, to - d * 6.0 - n * 3.5], t.accent, egui::Stroke::NONE));
+}
+
+#[cfg(test)]
+mod aw_surface_tests {
+    #[test]
+    fn aw_dialog_surface_is_opaque_over_the_document() {
+        let bounds = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(400.0, 300.0));
+        for dark in [false, true] {
+            let shape = super::acrylic_surface(bounds, egui::Frame::NONE, dark);
+            let egui::Shape::Vec(shapes) = shape else {
+                panic!("dialog surface needs its background");
+            };
+            assert!(
+                shapes.iter().any(|shape| matches!(shape, egui::Shape::Rect(rect) if rect.rect == bounds && rect.fill.a() == 255)),
+                "text behind the dialog must be covered"
+            );
+        }
+    }
 }

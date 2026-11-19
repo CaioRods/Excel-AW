@@ -1,6 +1,12 @@
 # Gaps
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-11-13 · **Change:** minor (§5: Arabic PDF output preserves cell direction, joined glyphs and RTL sheet geometry; earlier: §17: equations; earlier: §13: Solver Sensitivity report; earlier: §4: chart resizing is no longer a gap; earlier: §13: Analysis ToolPak has all 19 tools; earlier: §4: chart data tables implemented with XLSX round-trip and print/PDF; earlier: §13: Solver Options; earlier: §13: Solver Load/Save Model and Reset All) · **Target:** Microsoft Excel (Microsoft 365)
+> Selected-tab transfer · 2026-11-19: checkpoints retain the selected document, undo/redo, selection and view; acknowledged import precedes source removal, while other source tabs remain open. The last document still uses live-window docking. Readiness estimates are unchanged.
+
+> AWcontrol models/docking update · 2026-11-19: original pt-BR business templates, authenticated discovery of standalone Windows editors, visible resize cursors and guarded hosted tabs. Live return is handled by the central; no document serialization is used. Readiness estimates are unchanged.
+
+> AWcontrol branch update · 2026-11-19: Excel AW keeps its hosted header fixed, supports live detachment and explicit file actions, and uses native Windows taskbar/corner APIs. Core parity/readiness estimates are unchanged.
+
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-11-17 · **Change:** minor (§5: Arabic PDF output preserves cell direction, joined glyphs and RTL sheet geometry; earlier: §17: equations; earlier: §13: Solver Sensitivity report; earlier: §4: chart resizing is no longer a gap; earlier: §13: Analysis ToolPak has all 19 tools; earlier: §4: chart data tables implemented with XLSX round-trip and print/PDF; earlier: §13: Solver Options; earlier: §13: Solver Load/Save Model and Reset All) · **Target:** Microsoft Excel (Microsoft 365)
 
 Every known shortfall against Excel, one entry each, ranked by user impact (what blocks someone
 using GridCraft for real work first). This is the work list: pick from the top, check the open
@@ -235,3 +241,10 @@ No alpha blockers: every core workflow passes the [alpha gate](roadmap.md#alpha-
 | 2026-10-10 | minor | Updated for the 10-10 merges (#17, #31, #38, #62, #82, #104, #116) and the new chart resize bug (#190) |
 | 2026-10-10 | minor | Noted that no gap blocks the alpha gate |
 | 2026-10-10 | major | Created: 24 ranked gaps with evidence, from the full re-measure and the 60 open issues |
+
+
+## AW workspace — 2026-11-17
+
+Document tabs are always shown above the ribbon in the single-window AW mode. They can be reordered by dragging, created with +, and closed through the existing unsaved-changes confirmation. The account card and corner avatar use a local profile shared by Excel AW and Word AW under the same OS user (`%APPDATA%/AlimentosWilson/profile.json` on Windows). This shares the name, photo, banner and additional image; it does not synchronize documents or accounts over the internet.
+
+Excel uploads a cached white selection cross as a native OS cursor, retaining specialized cursors for resizing, filling and objects. This keeps pointer motion independent of document repainting; unsupported backends retain the standard Cell cursor.
