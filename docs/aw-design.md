@@ -16,3 +16,5 @@ AWcontrol hospeda cada editor nativo em uma página própria no Windows. A faixa
 A desseleção preserva a célula ativa quando possível e contorna a união das áreas, inclusive buracos removidos, sem linhas internas entre os retângulos resultantes.
 
 O fechamento confirmado com Não salvar no modo hospedado descarta o documento antes de concluir o encerramento, sem reabrir a pergunta. Cancelar preserva os dados.
+
+O cabeçalho interno não move ou maximiza uma página hospedada. A integração permite salvar, salvar como, renomear e destacar mantendo o mesmo processo e a pasta de trabalho, e oculta o botão individual da barra de tarefas enquanto hospedado.

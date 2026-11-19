@@ -6,6 +6,10 @@ use super::{
 impl SheetApp {
     /// Runs an engine command (or a UI command) and handles UI requests it makes.
     pub fn run(&mut self, id: &str, params: Json) -> Result<Json, String> {
+        if id == "ui.workspace.action" {
+            return self.workspace_action(&params);
+        }
+
         // A confirmed discard/save must reach the document close, not ask the window to close again.
         if self.external_workspace && id == "file.close" && params.get("force").and_then(Json::as_bool) != Some(true) {
             return self.run("ui.window.close", params);
@@ -24,6 +28,25 @@ impl SheetApp {
             self.cut_text = if id == "edit.cut" { self.clipboard_text_at_copy.clone() } else { None };
         }
         r
+    }
+
+    fn workspace_action(&mut self, params: &Json) -> Result<Json, String> {
+        match params.get("action").and_then(Json::as_str).unwrap_or("") {
+            "state" => Ok(json!({"path":self.session.active().and_then(|d| d.path.clone()), "embedded":self.external_workspace})),
+            "detach" | "embed" => {
+                self.external_workspace = params.get("action").and_then(Json::as_str) == Some("embed");
+                self.window_controls = cfg!(windows) && !self.external_workspace;
+                self.backstage = None;
+                Ok(json!({"embedded":self.external_workspace}))
+            }
+            "save" if self.session.active().is_some_and(|d| d.path.is_some()) => self.run("file.save", json!({})),
+            "save" | "saveAs" => {
+                self.open_dialog("saveAs", json!({}));
+                Ok(json!({"pending":"saveAs"}))
+            }
+            "rename" => self.run("file.rename", params.clone()),
+            _ => Err("Unsupported AWcontrol action".into()),
+        }
     }
 
     pub(super) fn run_command(&mut self, id: &str, params: Json) -> Result<Json, String> {

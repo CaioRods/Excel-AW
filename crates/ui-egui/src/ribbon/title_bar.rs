@@ -41,10 +41,10 @@ pub fn title_bar(app: &mut SheetApp, ui: &mut Ui) {
         theme::horizontal_gradient(ui.painter(), rect, start, end);
         // Dragging the empty title area moves the window.
         let bg = ui.interact(rect, ui.scope_id().with("drag_title"), Sense::click_and_drag());
-        if bg.drag_started() {
+        if !app.external_workspace && bg.drag_started() {
             ui.ctx().send_viewport_cmd(egui::ViewportCommand::StartDrag);
         }
-        if bg.double_clicked() {
+        if !app.external_workspace && bg.double_clicked() {
             let max = ui.ctx().input(|i| i.viewport().maximized.unwrap_or(false));
             ui.ctx().send_viewport_cmd(egui::ViewportCommand::Maximized(!max));
         }

@@ -407,3 +407,19 @@ mod viewport_command_tests {
         assert!(a.run("ui.window.beginResize", serde_json::json!({"direction": "diagonal"})).is_err());
     }
 }
+
+#[cfg(test)]
+mod aw_workspace_action_tests {
+    #[test]
+    fn detach_preserves_the_open_workbook_and_rejects_unknown_actions() {
+        let mut session = gridcraft_engine::Session::new();
+        session.new_workbook();
+        let mut app = crate::SheetApp::new(session, crate::Services::default());
+        app.external_workspace = true;
+        let before = app.session.active().map(|d| d.title.clone());
+        app.run("ui.workspace.action", serde_json::json!({"action":"detach"})).unwrap();
+        assert!(!app.external_workspace);
+        assert_eq!(before, app.session.active().map(|d| d.title.clone()));
+        assert!(app.run("ui.workspace.action", serde_json::json!({"action":"shell"})).is_err());
+    }
+}

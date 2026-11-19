@@ -57,6 +57,17 @@ impl eframe::App for App {
             });
         }
         self.0.logic(ctx);
+        #[cfg(windows)]
+        if let Some(window) = _frame.winit_window() {
+            use winit::platform::windows::{CornerPreference, WindowExtWindows};
+            let key = egui::Id::new("aw_native_window_mode");
+            if ctx.data(|d| d.get_temp::<bool>(key)) != Some(self.0.external_workspace) {
+                window.set_skip_taskbar(self.0.external_workspace);
+                window.set_corner_preference(if self.0.external_workspace { CornerPreference::DoNotRound } else { CornerPreference::Round });
+                ctx.data_mut(|d| d.insert_temp(key, self.0.external_workspace));
+            }
+        }
+
         if ctx.input(|input| input.viewport().close_requested()) && self.0.printing.busy() {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
         }
@@ -393,7 +404,8 @@ fn main() -> eframe::Result<()> {
         .with_app_id("ai.storyteller.gridcraft")
         .with_drag_and_drop(true)
         .with_decorations(!app.window_controls && !app.external_workspace)
-        .with_visible(!app.external_workspace);
+        .with_visible(!app.external_workspace)
+        .with_taskbar(!app.external_workspace);
     if cfg!(target_os = "macos") {
         viewport = viewport.with_fullsize_content_view(true).with_titlebar_shown(false).with_title_shown(false);
     }
