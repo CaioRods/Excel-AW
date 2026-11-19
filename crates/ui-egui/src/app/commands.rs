@@ -37,6 +37,9 @@ impl SheetApp {
                 self.external_workspace = params.get("action").and_then(Json::as_str) == Some("embed");
                 self.window_controls = cfg!(windows) && !self.external_workspace;
                 self.backstage = None;
+                if !self.external_workspace {
+                    self.viewport_commands.push(egui::ViewportCommand::Maximized(false));
+                }
                 Ok(json!({"embedded":self.external_workspace}))
             }
             "save" if self.session.active().is_some_and(|d| d.path.is_some()) => self.run("file.save", json!({})),

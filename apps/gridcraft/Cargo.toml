@@ -73,3 +73,7 @@ objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["std
 [[test]]
 name = "mac_menu_appkit"
 harness = false
+
+[target.'cfg(windows)'.dependencies]
+# Expose the same winit already used by eframe, for safe taskbar/corner APIs.
+winit = { version = "0.30", default-features = false }

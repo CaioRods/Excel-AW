@@ -60,7 +60,7 @@ impl eframe::App for App {
         #[cfg(windows)]
         if let Some(window) = _frame.winit_window() {
             use winit::platform::windows::{CornerPreference, WindowExtWindows};
-            let key = egui::Id::new("aw_native_window_mode");
+            let key = egui::Id::unique("aw_native_window_mode");
             if ctx.data(|d| d.get_temp::<bool>(key)) != Some(self.0.external_workspace) {
                 window.set_skip_taskbar(self.0.external_workspace);
                 window.set_corner_preference(if self.0.external_workspace { CornerPreference::DoNotRound } else { CornerPreference::Round });
