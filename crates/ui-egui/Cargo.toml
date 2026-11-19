@@ -9,7 +9,7 @@ description = "GridCraft egui frontend (Excel-style UI); swappable — nothing b
 workspace = true
 
 [dependencies]
-aw-workspace = { git = "https://github.com/CaioRods/Launcher-Wilson", rev = "f8a833a663429e532721ce75b732270f2fecf487" }
+aw-workspace = { git = "https://github.com/CaioRods/Launcher-Wilson", rev = "9562992904e080f02a8954c9c7cc9c5c040950e0" }
 # The shared capture slot (`craft_ui::capture`) comes from the one craft-libs revision every
 # craft-libs dependency uses (see the root Cargo.toml).
 craft-ui = { git = "https://github.com/storytold/craft-libs", rev = "aa84415bae3b765fef6b7ef42404f66ad1cff9d9" }

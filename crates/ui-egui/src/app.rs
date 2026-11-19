@@ -30,6 +30,7 @@ impl SheetApp {
     pub fn new(session: Session, services: Services) -> SheetApp {
         SheetApp {
             external_workspace: false,
+            workspace_transfer: None,
             session,
             ui: UiState::default(),
             chrome: Chrome::default(),
@@ -195,6 +196,9 @@ impl SheetApp {
 
     /// Lays out the whole window.
     pub fn ui(&mut self, ui: &mut egui::Ui) {
+        if self.workspace_transfer.is_some() {
+            ui.disable();
+        }
         let ctx = ui.ctx().clone();
         // Bitmap cursors are sticky: editing, menus and non-grid widgets must restore their own cursor.
         ctx.set_cursor_image(None);

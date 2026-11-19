@@ -86,6 +86,10 @@ impl SheetApp {
     /// window; Cancel on any of them stops the quit. A draft its
     /// workbook refuses stops the quit too, with its window in front and the reason shown.
     pub fn request_quit(&mut self, ctx: &egui::Context) {
+        if self.workspace_transfer.is_some() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            return;
+        }
         while let Some(window) = self.parked_window_with_draft() {
             self.enter_window(window);
             if self.settle_drafts().is_err() {

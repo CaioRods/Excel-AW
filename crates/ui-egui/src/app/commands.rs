@@ -10,6 +10,9 @@ impl SheetApp {
             return self.workspace_action(&params);
         }
 
+        if self.workspace_transfer.is_some() {
+            return Err("Aguarde a transferência do documento".into());
+        }
         // A confirmed discard/save must reach the document close, not ask the window to close again.
         if self.external_workspace && id == "file.close" && params.get("force").and_then(Json::as_bool) != Some(true) {
             return self.run("ui.window.close", params);
@@ -31,9 +34,89 @@ impl SheetApp {
     }
 
     fn workspace_action(&mut self, params: &Json) -> Result<Json, String> {
+        #[cfg(not(target_arch = "wasm32"))]
+        let process_id = std::process::id();
+        #[cfg(target_arch = "wasm32")]
+        let process_id = 0u32;
         match params.get("action").and_then(Json::as_str).unwrap_or("") {
-            "state" => {
-                Ok(json!({"path":self.session.active().and_then(|d| d.path.clone()), "embedded":self.external_workspace,"pid":std::process::id()}))
+            "state" => Ok(
+                json!({"path":self.session.active().and_then(|d| d.path.clone()), "embedded":self.external_workspace,"pid":process_id,"count":self.session.documents().len()}),
+            ),
+
+            #[cfg(not(target_arch = "wasm32"))]
+            "export" => {
+                if self.workspace_transfer.is_some() {
+                    return Err("Transfer already pending".into());
+                }
+                let id = params.get("name").and_then(serde_json::Value::as_str).ok_or("Missing transfer identifier")?;
+                self.settle_drafts()?;
+                self.store_view_state();
+                let doc = self.session.doc().map_err(|e| e.to_string())?;
+                let document = doc.uid;
+                let revision = doc.revision;
+                let payload = self.session.workspace_checkpoint()?;
+                let ui = json!({"tab":self.ui.ribbon_tab,"scroll":[self.view().scroll.x,self.view().scroll.y]});
+                let checkpoint =
+                    aw_workspace::handoff::Checkpoint { version: 1, app: 0, source_pid: std::process::id(), document, revision, payload, ui };
+                aw_workspace::handoff::write(id, &checkpoint)?;
+                self.workspace_transfer = Some(id.into());
+                Ok(json!({"transfer":id,"pid":process_id,"count":self.session.documents().len()}))
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            "import" => {
+                if !self.external_workspace || self.workspace_transfer.is_some() {
+                    return Err("Destination is not available".into());
+                }
+                let id = params.get("name").and_then(serde_json::Value::as_str).ok_or("Missing transfer identifier")?;
+                let checkpoint = aw_workspace::handoff::read::<gridcraft_engine::workspace::Checkpoint>(id, 0)?;
+                self.session.workspace_import(checkpoint.payload)?;
+                self.after_engine();
+                if let Some(tab) = checkpoint.ui.get("tab").and_then(serde_json::Value::as_str) {
+                    self.ui.ribbon_tab = tab.into();
+                }
+                if let Some(v) = self.view_mut()
+                    && let Some(a) = checkpoint.ui.get("scroll").and_then(serde_json::Value::as_array)
+                    && let (Some(x), Some(y)) = (a.first().and_then(serde_json::Value::as_f64), a.get(1).and_then(serde_json::Value::as_f64))
+                {
+                    v.scroll = egui::vec2(x.max(0.0) as f32, y.max(0.0) as f32);
+                }
+                self.workspace_transfer = Some(id.into());
+                Ok(json!({"transfer":id,"sourcePid":checkpoint.source_pid}))
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            "commit" => {
+                let id = params.get("name").and_then(serde_json::Value::as_str).ok_or("Missing transfer identifier")?;
+                if self.workspace_transfer.as_deref() != Some(id) {
+                    return Err("Transfer is not pending".into());
+                }
+                let checkpoint = aw_workspace::handoff::read::<serde::de::IgnoredAny>(id, 0)?;
+                if checkpoint.source_pid != std::process::id() {
+                    return Err("Wrong source process".into());
+                }
+                self.session.workspace_commit(checkpoint.document, checkpoint.revision)?;
+                self.workspace_transfer = None;
+                self.after_engine();
+                Ok(json!({"committed":true}))
+            }
+            "abort" => {
+                let id = params.get("name").and_then(serde_json::Value::as_str).ok_or("Missing transfer identifier")?;
+                if !self.external_workspace || self.workspace_transfer.as_deref() != Some(id) {
+                    return Err("No uncommitted import".into());
+                }
+                while !self.session.documents().is_empty() {
+                    self.session.close_document(0);
+                }
+                self.session.new_workbook();
+                self.after_engine();
+                self.workspace_transfer = None;
+                Ok(json!({"aborted":true}))
+            }
+            "accept" | "cancel" => {
+                let id = params.get("name").and_then(serde_json::Value::as_str).ok_or("Missing transfer identifier")?;
+                if self.workspace_transfer.as_deref() == Some(id) {
+                    self.workspace_transfer = None;
+                }
+                Ok(json!({"ready":true}))
             }
             "detach" | "embed" => {
                 self.external_workspace = params.get("action").and_then(Json::as_str) == Some("embed");

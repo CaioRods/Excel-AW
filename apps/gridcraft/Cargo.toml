@@ -12,7 +12,7 @@ description = "GridCraft desktop app"
 workspace = true
 
 [dependencies]
-aw-workspace = { git = "https://github.com/CaioRods/Launcher-Wilson", rev = "f8a833a663429e532721ce75b732270f2fecf487" }
+aw-workspace = { git = "https://github.com/CaioRods/Launcher-Wilson", rev = "9562992904e080f02a8954c9c7cc9c5c040950e0" }
 gridcraft-engine = { workspace = true }
 gridcraft-ui-egui = { workspace = true }
 gridcraft-sandbox = { workspace = true }
