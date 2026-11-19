@@ -1,5 +1,7 @@
 # Roadmap detail
 
+> AWcontrol branch update · 2026-11-19: Excel AW keeps its hosted header fixed, supports live detachment and explicit file actions, and uses native Windows taskbar/corner APIs. Core parity/readiness estimates are unchanged.
+
 > **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-23 · **Change:** minor (test command) · **Target:** Microsoft Excel (Microsoft 365)
 
 Forward-looking plan. The one-page summary is [`ROADMAP.md`](../ROADMAP.md); the ranked work

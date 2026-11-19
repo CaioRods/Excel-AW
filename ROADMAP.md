@@ -1,5 +1,7 @@
 # GridCraft roadmap
 
+> AWcontrol branch update · 2026-11-19: Excel AW keeps its hosted header fixed, supports live detachment and explicit file actions, and uses native Windows taskbar/corner APIs. Core parity/readiness estimates are unchanged.
+
 **Stage: alpha** · next: beta, ~25 points of "ready for real work" and ~160–240 h away
 
 > **Last reviewed:** 2026-11-15 · **Last updated:** 2026-11-17 · **Change:** minor (performance: formula entry and XLSX save win back time lost since 23829d8c (#2654), 465 → 420 ms and 540 → 488 ms on the 100k-row benchmark; Sandbox refuses fcntl's asynchronous notification and the socket ioctls that notify another process on Linux (#3846); CI provisions pinned fonts for coverage tests; the oversized pivot-cache warning's test names the part limit; readiness estimates unchanged) · **Target:** Microsoft Excel (Microsoft 365)
