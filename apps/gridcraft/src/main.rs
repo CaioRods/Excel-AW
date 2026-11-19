@@ -20,6 +20,7 @@ mod native_menu;
 #[cfg(windows)]
 mod open_requests;
 mod print;
+mod workspace_session;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -460,7 +461,7 @@ fn main() -> eframe::Result<()> {
                     return Err("the app was already created".into());
                 };
                 SheetApp::setup_context_for_language(&cc.egui_ctx, app.ui.dark, app.ui.language);
-                if let Some(port) = control_port {
+                if let Some(port) = control_port.or(if cfg!(windows) { Some(0) } else { None }) {
                     match control_server::start(port, control_token.clone(), cc.egui_ctx.clone()) {
                         Ok(rx) => app.control_rx = Some(rx),
                         Err(e) => log::error!("control channel on port {port}: {e}"),

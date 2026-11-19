@@ -32,7 +32,9 @@ impl SheetApp {
 
     fn workspace_action(&mut self, params: &Json) -> Result<Json, String> {
         match params.get("action").and_then(Json::as_str).unwrap_or("") {
-            "state" => Ok(json!({"path":self.session.active().and_then(|d| d.path.clone()), "embedded":self.external_workspace})),
+            "state" => {
+                Ok(json!({"path":self.session.active().and_then(|d| d.path.clone()), "embedded":self.external_workspace,"pid":std::process::id()}))
+            }
             "detach" | "embed" => {
                 self.external_workspace = params.get("action").and_then(Json::as_str) == Some("embed");
                 self.window_controls = cfg!(windows) && !self.external_workspace;

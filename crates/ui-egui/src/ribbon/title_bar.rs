@@ -218,7 +218,6 @@ fn paint_title(ui: &Ui, center: egui::Pos2, title: &str, dirty: bool, max_w: f32
 /// Width of one window-control button on the title bar.
 pub const CONTROL_W: f32 = 46.0;
 const CONTROL_TITLE_H: f32 = 32.0;
-const RESIZE_BAND: f32 = 5.0;
 
 /// Draw application controls and edge resizing for frameless windows.
 pub fn window_frame(app: &mut SheetApp, ctx: &egui::Context) {
@@ -298,21 +297,10 @@ pub fn window_frame(app: &mut SheetApp, ctx: &egui::Context) {
     let Some(pos) = ctx.input(|i| i.pointer.hover_pos()) else {
         return;
     };
-    let l = pos.x <= screen.min.x + RESIZE_BAND;
-    let r = pos.x >= screen.max.x - RESIZE_BAND;
-    let top = pos.y <= screen.min.y + RESIZE_BAND;
-    let b = pos.y >= screen.max.y - RESIZE_BAND;
-    let dir = match (l, r, top, b) {
-        (true, false, true, false) => Some(egui::viewport::ResizeDirection::NorthWest),
-        (false, true, true, false) => Some(egui::viewport::ResizeDirection::NorthEast),
-        (true, false, false, true) => Some(egui::viewport::ResizeDirection::SouthWest),
-        (false, true, false, true) => Some(egui::viewport::ResizeDirection::SouthEast),
-        (true, false, _, _) => Some(egui::viewport::ResizeDirection::West),
-        (false, true, _, _) => Some(egui::viewport::ResizeDirection::East),
-        (_, _, true, false) => Some(egui::viewport::ResizeDirection::North),
-        (_, _, false, true) => Some(egui::viewport::ResizeDirection::South),
-        _ => None,
-    };
+    let dir = aw_workspace::window_frame::resize_direction(screen, pos);
+    if let Some(direction) = dir {
+        ctx.set_cursor_icon(aw_workspace::window_frame::resize_cursor(direction));
+    }
     if let Some(dir) = dir
         && ctx.input(|i| i.pointer.primary_pressed())
         && !controls.contains(pos)

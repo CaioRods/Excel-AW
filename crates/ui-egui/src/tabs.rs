@@ -12,7 +12,7 @@ use crate::theme::{self, Tokens};
 
 /// One tab per visible workbook window, above the formula bar.
 pub(crate) fn workbook_tabs(app: &mut SheetApp, ui: &mut Ui) {
-    if app.external_workspace {
+    if app.external_workspace && app.session.documents().len() <= 1 {
         return;
     }
     if app.native_windows {
@@ -23,6 +23,7 @@ pub(crate) fn workbook_tabs(app: &mut SheetApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
     let style = crate::document_strip::Style {
         brand: "Excel AW",
+        movable: !app.external_workspace,
         accent: t.accent,
         active: t.window,
         text: t.text,
